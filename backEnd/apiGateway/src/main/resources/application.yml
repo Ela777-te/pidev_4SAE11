@@ -5,20 +5,39 @@
 spring:
   cloud:
     gateway:
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:4200"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders:
+              - Authorization
+              - Content-Type
+              - Accept
+              - Origin
+              - X-Requested-With
+            allowCredentials: true
       discovery:
         locator:
           enabled: false
           lower-case-service-id: true
       routes:
         - id: keycloak-auth
-          uri: lb://keycloak-auth
+          uri: http://localhost:8079
           predicates:
             - Path=/keycloak-auth/**
           filters:
             - StripPrefix=1
 
         - id: user
-          uri: lb://user
+          uri: http://localhost:8090
           predicates:
             - Path=/user/**
           filters:
