@@ -60,6 +60,12 @@
       </ng-template>
     </div>
 
+    <!-- Actions: Back + Edit -->
+    <div class="actions">
+      <a routerLink="../.." class="btn-back">← Back to projects</a>
+      <a [routerLink]="['..', 'edit']" class="btn-edit">Edit project</a>
+    </div>
+
   </div>
 
 </section>

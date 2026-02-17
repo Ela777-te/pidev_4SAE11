@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ProjectService } from '../../../core/services/project.service';
+import { ProjectService, Project } from '../../../core/services/project.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { UserService } from '../../../core/services/user.service';
 import { Router } from '@angular/router';
 
 @Component({
@@ -10,7 +12,7 @@ import { Router } from '@angular/router';
   templateUrl: './add-project.html',
   styleUrl: './add-project.scss',
 })
-export class AddProject implements OnInit{
+export class AddProject implements OnInit {
   postProjectForm!: FormGroup;
   isSubmitting = false;
   submitSuccess = false;
@@ -19,6 +21,8 @@ export class AddProject implements OnInit{
 
   constructor(
     private projectService: ProjectService,
+    private authService: AuthService,
+    private userService: UserService,
     private fb: FormBuilder,
     private router: Router
   ) {}
@@ -81,26 +85,43 @@ export class AddProject implements OnInit{
       // Alternative (full ISO with Z): formValue.deadline += 'T00:00:00Z';
     }
 
-    console.log('Sending:', formValue);  // check this in browser console
-
     this.isSubmitting = true;
 
-    this.projectService.createProject(formValue).subscribe({
-      next: (res) => {
-        console.log('Project created:', res);
-        this.submitSuccess = true;
-        this.isSubmitting = false;
+    const email = this.authService.getPreferredUsername();
+    if (!email) {
+      this.submitError = 'You must be signed in to create a project.';
+      this.isSubmitting = false;
+      return;
+    }
 
-        // Optional: show success for 2 seconds then redirect
-        setTimeout(() => {
-          this.router.navigateByUrl('/dashboard/my-projects');
-        }, 1800);
+    this.userService.getByEmail(email).subscribe({
+      next: (user) => {
+        if (!user?.id) {
+          this.submitError = 'Could not identify your account. Please try again.';
+          this.isSubmitting = false;
+          return;
+        }
+        // clientId = user id of the user who created the project (the logged-in CLIENT)
+        const projectPayload = { ...formValue, clientId: user.id };
+        this.projectService.createProject(projectPayload).subscribe({
+          next: (res: Project | null) => {
+            this.submitSuccess = true;
+            this.isSubmitting = false;
+            setTimeout(() => {
+              this.router.navigateByUrl('/dashboard/my-projects');
+            }, 1800);
+          },
+          error: (err: { error?: { message?: string } }) => {
+            console.error('Create failed', err);
+            this.submitError = err?.error?.message || 'Failed to create project. Please try again.';
+            this.isSubmitting = false;
+          },
+        });
       },
-      error: (err) => {
-        console.error('Create failed', err);
-        this.submitError = err.error?.message || 'Failed to create project. Please try again.';
+      error: () => {
+        this.submitError = 'Could not load your profile. Please try again.';
         this.isSubmitting = false;
-      }
+      },
     });
   }
 

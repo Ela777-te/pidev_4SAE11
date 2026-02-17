@@ -1,5 +1,6 @@
 package tn.esprit.project.Entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -44,6 +45,7 @@ public class Project {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @JsonIgnore
     private List<ProjectApplication> applications = new ArrayList<>();
 
 

@@ -13,4 +13,6 @@ public interface IProjectService {
     Project getProjectById(Long id);
 
     List<Project> getAllProjects();
+
+    List<Project> getProjectsByClientId(Long clientId);
 }

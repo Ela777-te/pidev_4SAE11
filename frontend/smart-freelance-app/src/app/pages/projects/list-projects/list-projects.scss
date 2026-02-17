@@ -13,7 +13,50 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 2.5rem;     // instead of section-title's margin-bottom
+  margin-bottom: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+
+  .toolbar-count {
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-refresh {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #475569;
+    background: transparent;
+    border: 1px solid #94a3b8;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background: #475569;
+      color: white;
+      border-color: #475569;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
 }
 
 /* Optional: make title responsive */
@@ -298,5 +341,91 @@
 
   &:hover {
     background-color: #dc2626;   // red-600
+  }
+}
+
+/* ── Delete confirmation modal (like user management) ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+
+  h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+  }
+
+  .modal-message {
+    color: #334155;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: 0 0 1.5rem;
+
+    strong {
+      font-weight: 600;
+    }
+  }
+
+  &.modal--confirm {
+    max-width: 400px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+
+    .btn-secondary {
+      padding: 0.5rem 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+
+      &:hover:not(:disabled) {
+        background: #f1f5f9;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        opacity: 0.9;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
   }
 }

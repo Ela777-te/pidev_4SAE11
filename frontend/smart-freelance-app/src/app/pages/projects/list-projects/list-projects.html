@@ -6,6 +6,15 @@
     </a>
   </div>
 
+  <div class="toolbar">
+    <span class="toolbar-count">{{ projects.length }} project(s)</span>
+    <div class="toolbar-actions">
+      <button type="button" class="btn-refresh" (click)="loadProjects()" [disabled]="isLoading">
+        {{ isLoading ? 'Loading…' : 'Refresh' }}
+      </button>
+    </div>
+  </div>
+
   <!-- Loading / Error states -->
   <div class="loading-state" *ngIf="isLoading">
     <p>Loading projects...</p>
@@ -45,12 +54,11 @@
         </p>
 
         <div class="skills-required">
-          <!-- split + trim each skill -->
-          <span class="skill" *ngFor="let skill of (project.skillsRequiered?.split(',') || [])">
-            {{ skill.trim() }}
+          <span class="skill" *ngFor="let skill of getSkills(project)">
+            {{ skill }}
           </span>
 
-          <span class="skill empty" *ngIf="!project.skillsRequiered?.trim()">
+          <span class="skill empty" *ngIf="getSkills(project).length === 0">
             No skills listed
           </span>
         </div>
@@ -73,7 +81,7 @@
           </button>
 
           <button 
-            (click)="deleteProject(project.id!)" 
+            (click)="openDeleteModal(project)" 
             class="btn btn--delete" 
             title="Delete this project"
           >
@@ -82,12 +90,31 @@
         </div>
       </div>
     </div>
-
-    <!-- Empty state -->
-    <div class="empty-state" 
-        *ngIf="!isLoading && !errorMessage && projects.length === 0">
-      <p>No projects found.</p>
-      <a routerLink="../add" class="btn btn--add-project">Create your first project</a>
-    </div>
   </div>
+
+  <!-- Empty state (when no projects, after loading finished) -->
+  <div class="empty-state" 
+       *ngIf="!isLoading && !errorMessage && projects.length === 0">
+    <p>No projects found.</p>
+    <a routerLink="add" class="btn btn--add-project">Create your first project</a>
+  </div>
+
+  <!-- Delete confirmation modal (like user management) -->
+  @if (projectToDelete) {
+    <div class="modal-overlay" (click)="closeDeleteModal()">
+      <div class="modal modal--confirm" (click)="$event.stopPropagation()">
+        <h3>Delete project</h3>
+        <p class="modal-message">
+          Are you sure you want to delete <strong>{{ projectToDelete.title }}</strong>?
+          This action cannot be undone.
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" (click)="closeDeleteModal()" [disabled]="deleting">Cancel</button>
+          <button type="button" class="btn-danger" (click)="doDelete()" [disabled]="deleting">
+            {{ deleting ? 'Deleting…' : 'Delete' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

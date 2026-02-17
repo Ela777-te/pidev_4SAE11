@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ProjectService } from '../../../core/services/project.service';
+import { ProjectService, Project } from '../../../core/services/project.service';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -17,76 +17,94 @@ export class UpdateProject {
   isSubmitting = false;
   submitSuccess = false;
   submitError: string | null = null;
-  
-    updateProjectForm!: FormGroup;
-    constructor(
-      private activatedRoute: ActivatedRoute,
-      private ps: ProjectService,
-      private fb: FormBuilder,
-      private router: Router){}
-  
-    ngOnInit(){
-      this.id = Number(this.activatedRoute.snapshot.paramMap.get('id'));
 
-      this.updateProjectForm = this.fb.group({
-        id: this.id,
-        title: [null, [Validators.required]],
-        description: [null, [Validators.required]],
-        budget: [null, [Validators.required]],
-        deadline: [null, [Validators.required]],
-        status: [null, [Validators.required]],
-        category: ['', [Validators.required]],
-        skillsRequiered: [null, [Validators.required]]
-      })
-      this.getProjectById();
-    }
+  updateProjectForm!: FormGroup;
+
+  constructor(
+    private activatedRoute: ActivatedRoute,
+    private ps: ProjectService,
+    private fb: FormBuilder,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.id = Number(this.activatedRoute.snapshot.paramMap.get('id'));
+
+    this.updateProjectForm = this.fb.group({
+      id: this.id,
+      clientId: [null as number | null],
+      title: ['', [Validators.required, Validators.minLength(3)]],
+      description: ['', [Validators.required, Validators.minLength(10)]],
+      budget: [null, [Validators.required, Validators.min(1)]],
+      deadline: ['', [Validators.required]],
+      status: ['', [Validators.required]],
+      category: ['', [Validators.required]],
+      skillsRequiered: ['', [Validators.required, Validators.minLength(2)]]
+    });
+    this.getProjectById();
+  }
   
-    getProjectById() {
-      this.isLoading = true;
-      this.ps.getProjectById(this.id).subscribe({
-        next: (res) => {
-          console.log(res);
-          const formattedDate = res.deadline ? res.deadline.split('T')[0] : '';
+  getProjectById(): void {
+    this.isLoading = true;
+    this.ps.getProjectById(this.id).subscribe({
+      next: (res: Project | null) => {
+        if (res) {
+          const formattedDate = res.deadline ? String(res.deadline).split('T')[0] : '';
           this.updateProjectForm.patchValue({
             ...res,
+            title: res.title ?? '',
+            description: res.description ?? '',
+            category: res.category ?? '',
+            status: res.status ?? '',
+            skillsRequiered: Array.isArray(res.skillsRequiered)
+              ? (res.skillsRequiered as string[]).join(', ')
+              : (res.skillsRequiered ?? ''),
             deadline: formattedDate
           });
-          this.isLoading = false;
-        },
-        error: (err) => {
-          this.submitError = 'Failed to load project';
-          this.isLoading = false;
         }
-      });
+        this.isLoading = false;
+      },
+      error: () => {
+        this.submitError = 'Failed to load project';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  updateProject(): void {
+    if (this.updateProjectForm.invalid) {
+      this.updateProjectForm.markAllAsTouched();
+      return;
     }
-  
-    updateProject() {
-      if (this.updateProjectForm.invalid) return;
 
       this.isSubmitting = true;
       this.submitError = null;
 
-      const formValue = { ...this.updateProjectForm.value };
+    const formValue = { ...this.updateProjectForm.value };
 
-      // ✅ SAME FIX AS ADD COMPONENT
-      if (formValue.deadline && !formValue.deadline.includes('T')) {
-        formValue.deadline = `${formValue.deadline}T00:00:00`;
-      }
-
-      this.ps.updateProject(formValue).subscribe({
-        next: (res) => {
-          console.log(res);
-          this.submitSuccess = true;
-          this.isSubmitting = false;
-
-          setTimeout(() => {
-            this.router.navigateByUrl("dashboard/my-projects");
-          }, 1500);
-        },
-        error: (err) => {
-          this.submitError = 'Failed to update project';
-          this.isSubmitting = false;
-        }
-      });
+    if (formValue.deadline && !formValue.deadline.includes('T')) {
+      formValue.deadline = `${formValue.deadline}T00:00:00`;
     }
+
+    const skillsTrimmed = (formValue.skillsRequiered || '').trim();
+    if (skillsTrimmed.length < 2) {
+      this.updateProjectForm.get('skillsRequiered')?.setErrors({ minlength: true });
+      this.isSubmitting = false;
+      return;
+    }
+
+    this.ps.updateProject(formValue).subscribe({
+      next: () => {
+        this.submitSuccess = true;
+        this.isSubmitting = false;
+        setTimeout(() => {
+          this.router.navigateByUrl('dashboard/my-projects');
+        }, 1500);
+      },
+      error: () => {
+        this.submitError = 'Failed to update project';
+        this.isSubmitting = false;
+      }
+    });
+  }
 }

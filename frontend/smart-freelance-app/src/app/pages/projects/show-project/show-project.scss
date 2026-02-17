@@ -1,10 +1,10 @@
 .project-details {
   padding: 40px;
   display: flex;
+  flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   min-height: 100vh;
-  background: #f6f8fb;
 }
 
 .project-details .loading,

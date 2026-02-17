@@ -34,4 +34,9 @@ public class IProjectServicelmp implements IProjectService{
         return projectRepository.findAll();
     }
 
+    @Override
+    public List<Project> getProjectsByClientId(Long clientId) {
+        return projectRepository.findByClientId(clientId);
+    }
+
 }

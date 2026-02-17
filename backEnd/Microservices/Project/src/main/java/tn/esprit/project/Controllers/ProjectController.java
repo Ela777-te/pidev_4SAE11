@@ -30,11 +30,17 @@ public class ProjectController {
         projectService.deleteProject(id);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/list")
+    public List<Project> getAllProjects() { return projectService.getAllProjects(); }
+
+    @GetMapping("/client/{clientId}")
+    public List<Project> getProjectsByClientId(@PathVariable Long clientId) {
+        return projectService.getProjectsByClientId(clientId);
+    }
+
+    /** Single project by id (numeric only, so /client/14 is not matched here). */
+    @GetMapping("/{id:\\d+}")
     public Project getProjectById(@PathVariable Long id) {
         return projectService.getProjectById(id);
     }
-
-    @GetMapping("/list")
-    public List<Project> getAllProjects() { return projectService.getAllProjects(); }
 }
