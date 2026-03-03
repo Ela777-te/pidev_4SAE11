@@ -21,7 +21,7 @@ pipeline {
         stage('Build & Test') {
             steps {
                 dir(PLANNING_DIR) {
-                    sh './mvnw clean verify -B'
+                    sh 'chmod +x mvnw && ./mvnw clean verify -B'
                 }
             }
             post {
@@ -35,7 +35,7 @@ pipeline {
             steps {
                 dir(PLANNING_DIR) {
                     withSonarQubeEnv('SonarQube') {
-                        sh './mvnw sonar:sonar -Dsonar.projectKey=planning -Dsonar.projectName=Planning'
+                        sh 'chmod +x mvnw && ./mvnw sonar:sonar -Dsonar.projectKey=planning -Dsonar.projectName=Planning'
                     }
                 }
             }
