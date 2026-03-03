@@ -13,6 +13,10 @@ export interface CalendarDay {
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/**
+ * Calendar page: loads and displays planning events (deadlines, next progress due) via PlanningService.getCalendarEvents.
+ * Supports month navigation and day selection.
+ */
 @Component({
   selector: 'app-calendar',
   standalone: true,

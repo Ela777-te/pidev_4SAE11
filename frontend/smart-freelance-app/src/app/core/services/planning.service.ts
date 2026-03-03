@@ -1,9 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of, throwError } from 'rxjs';
+import { Observable, catchError, map, of, throwError, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 const PLANNING_API = `${environment.apiGatewayUrl}/planning/api`;
+
+/** Timeout for GitHub API calls so the page doesn't hang when Planning is slow or down. */
+const GITHUB_REQUEST_TIMEOUT_MS = 8_000;
 
 /** Progress update submitted by a freelancer (matches backend ProgressUpdate). */
 export interface ProgressUpdate {
@@ -19,6 +22,8 @@ export interface ProgressUpdate {
   /** Optional next progress update due (synced to Google Calendar when enabled). */
   nextUpdateDue?: string | null;
   nextDueCalendarEventId?: string | null;
+  /** Optional GitHub repository URL linked to this update (e.g. https://github.com/owner/repo). */
+  githubRepoUrl?: string | null;
   comments?: ProgressComment[];
 }
 
@@ -41,6 +46,8 @@ export interface ProgressUpdateRequest {
   progressPercentage: number;
   /** Optional next progress update due (synced to Google Calendar when enabled). ISO date-time. */
   nextUpdateDue?: string | null;
+  /** Optional GitHub repository URL (e.g. https://github.com/owner/repo). */
+  githubRepoUrl?: string | null;
 }
 
 /** Request body for create/update comment. */
@@ -172,12 +179,41 @@ export interface PlanningHealth {
   database?: PlanningHealthDatabase;
 }
 
+/** GitHub branch (GET /api/github/repos/:owner/:repo/branches). */
+export interface GitHubBranchDto {
+  name: string;
+  commit?: { sha?: string };
+}
+
+/** GitHub commit (GET /api/github/repos/:owner/:repo/commits/latest). */
+export interface GitHubCommitDto {
+  sha: string;
+  html_url?: string;
+  commit?: {
+    message?: string;
+    author?: { name?: string; date?: string };
+  };
+}
+
+/** GitHub issue creation response (POST /api/github/repos/:owner/:repo/issues). */
+export interface GitHubIssueResponseDto {
+  number: number;
+  html_url: string;
+  title: string;
+  state: string;
+}
+
+/**
+ * Planning API client: progress updates (CRUD, filters, stats, validation), comments, calendar events,
+ * GitHub integration (branches, commits, issues), and planning health. All calls go to the planning microservice via the API gateway.
+ */
 @Injectable({ providedIn: 'root' })
 export class PlanningService {
   constructor(private http: HttpClient) {}
 
   // ---------- Progress updates (Freelancer CRUD) ----------
 
+  /** Returns all progress updates as an array (first page from GET /progress-updates). On error returns []. */
   getAllProgressUpdates(): Observable<ProgressUpdate[]> {
     return this.http.get<PageResponse<ProgressUpdate>>(`${PLANNING_API}/progress-updates`).pipe(
       map((page) => (page?.content && Array.isArray(page.content) ? page.content : [])),
@@ -279,18 +315,21 @@ export class PlanningService {
     );
   }
 
+  /** Returns a single progress update by id (GET /progress-updates/:id). On error or 404 returns null. */
   getProgressUpdateById(id: number): Observable<ProgressUpdate | null> {
     return this.http.get<ProgressUpdate>(`${PLANNING_API}/progress-updates/${id}`).pipe(
       catchError(() => of(null))
     );
   }
 
+  /** Returns all progress updates for the given project (GET /progress-updates/project/:id). On error returns []. */
   getProgressUpdatesByProjectId(projectId: number): Observable<ProgressUpdate[]> {
     return this.http.get<ProgressUpdate[]>(`${PLANNING_API}/progress-updates/project/${projectId}`).pipe(
       catchError(() => of([]))
     );
   }
 
+  /** Returns all progress updates for the given freelancer (GET /progress-updates/freelancer/:id). On error returns []. */
   getProgressUpdatesByFreelancerId(freelancerId: number): Observable<ProgressUpdate[]> {
     return this.http.get<ProgressUpdate[]>(`${PLANNING_API}/progress-updates/freelancer/${freelancerId}`).pipe(
       catchError(() => of([]))
@@ -330,18 +369,21 @@ export class PlanningService {
     );
   }
 
+  /** Creates a progress update (POST /progress-updates). Propagates errors to the caller. */
   createProgressUpdate(request: ProgressUpdateRequest): Observable<ProgressUpdate> {
     return this.http.post<ProgressUpdate>(`${PLANNING_API}/progress-updates`, request).pipe(
       catchError((err) => throwError(() => err))
     );
   }
 
+  /** Updates a progress update by id (PUT /progress-updates/:id). On error returns null. */
   updateProgressUpdate(id: number, request: ProgressUpdateRequest): Observable<ProgressUpdate | null> {
     return this.http.put<ProgressUpdate>(`${PLANNING_API}/progress-updates/${id}`, request).pipe(
       catchError(() => of(null))
     );
   }
 
+  /** Deletes a progress update by id (DELETE /progress-updates/:id). Returns true on success, false on error. */
   deleteProgressUpdate(id: number): Observable<boolean> {
     return this.http.delete(`${PLANNING_API}/progress-updates/${id}`, { observe: 'response' }).pipe(
       map((res) => res.status >= 200 && res.status < 300),
@@ -517,6 +559,58 @@ export class PlanningService {
   getPlanningHealth(): Observable<PlanningHealth | null> {
     // Use the dedicated Planning health endpoint exposed by the microservice itself.
     return this.http.get<PlanningHealth>(`${PLANNING_API}/planning/health`).pipe(
+      catchError(() => of(null))
+    );
+  }
+
+  // ---------- GitHub API (all roles: client, freelancer, admin) ----------
+
+  /** Check if GitHub integration is enabled. */
+  isGitHubEnabled(): Observable<boolean> {
+    return this.http.get<boolean>(`${PLANNING_API}/github/enabled`).pipe(
+      timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      catchError(() => of(false))
+    );
+  }
+
+  /** List branches for a repository. */
+  getGitHubBranches(owner: string, repo: string): Observable<GitHubBranchDto[]> {
+    const url = `${PLANNING_API}/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`;
+    return this.http.get<GitHubBranchDto[]>(url).pipe(
+      timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      catchError(() => of([]))
+    );
+  }
+
+  /** Get latest commit for a repo (optional branch). */
+  getGitHubLatestCommit(owner: string, repo: string, branch?: string | null): Observable<GitHubCommitDto | null> {
+    let url = `${PLANNING_API}/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/latest`;
+    if (branch?.trim()) {
+      url += `?branch=${encodeURIComponent(branch.trim())}`;
+    }
+    return this.http.get<GitHubCommitDto>(url).pipe(
+      timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      catchError(() => of(null))
+    );
+  }
+
+  /** List commits (full history) for a repo. Optional branch, perPage default 30. */
+  getGitHubCommits(owner: string, repo: string, branch?: string | null, perPage: number = 30): Observable<GitHubCommitDto[]> {
+    let url = `${PLANNING_API}/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?perPage=${Math.min(Math.max(perPage, 1), 100)}`;
+    if (branch?.trim()) {
+      url += `&branch=${encodeURIComponent(branch.trim())}`;
+    }
+    return this.http.get<GitHubCommitDto[]>(url).pipe(
+      timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      catchError(() => of([]))
+    );
+  }
+
+  /** Create a GitHub issue in the given repository. */
+  createGitHubIssue(owner: string, repo: string, title: string, body?: string | null): Observable<GitHubIssueResponseDto | null> {
+    const url = `${PLANNING_API}/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`;
+    return this.http.post<GitHubIssueResponseDto>(url, { title, body: body ?? '' }).pipe(
+      timeout(GITHUB_REQUEST_TIMEOUT_MS),
       catchError(() => of(null))
     );
   }

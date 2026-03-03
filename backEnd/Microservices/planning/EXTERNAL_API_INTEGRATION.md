@@ -182,6 +182,7 @@ This document describes how to integrate **Google Calendar**, **Firebase Cloud M
 
 1. Create a **Personal Access Token** (classic) or **Fine-grained token** with minimal scopes (e.g. read repo, read commit status).
 2. Store token in configuration (e.g. `github.token`). Do not commit to Git.
+3. **Local development:** Set the `GITHUB_TOKEN` environment variable before starting the Planning service (e.g. `export GITHUB_TOKEN=$(cat githubToken.txt)` on Unix, or in your IDE run configuration). The repo root file `githubToken.txt` is in `.gitignore`; use it only locally and never commit it.
 
 ### Integration in Planning
 

@@ -18,6 +18,9 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Health and readiness endpoint for the Planning microservice. Exposes /api/planning/health with service status and a lightweight database check.
+ */
 @RestController
 @RequestMapping("/api/planning")
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class PlanningHealthController {
 
     private final ProgressUpdateRepository progressUpdateRepository;
 
+    /** Returns service health: status UP with database count when DB is reachable; 503 with status DEGRADED when DB fails. */
     @GetMapping("/health")
     @Operation(
             summary = "Planning health",

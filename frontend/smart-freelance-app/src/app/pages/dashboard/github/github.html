@@ -1,0 +1,138 @@
+<div class="github-page">
+  <header class="github-header">
+    <h1>GitHub</h1>
+    <p class="subtitle">View branches, latest commit, and create issues for any repository (integration via Planning service).</p>
+  </header>
+
+  @if (loadingEnabled) {
+    <p class="loading-msg">Checking GitHub integration…</p>
+  } @else if (!enabled) {
+    <div class="github-disabled card">
+      <p><strong>GitHub integration is disabled.</strong> Configure <code>github.enabled=true</code> and <code>GITHUB_TOKEN</code> in the Planning service to use this page.</p>
+      @if (repoUrl) {
+        <p class="repo-fallback">
+          You can still open this repository on GitHub:
+          <a [href]="repoUrl" target="_blank" rel="noopener noreferrer" class="commit-link">View {{ owner }}/{{ repo }} on GitHub</a>
+        </p>
+      }
+    </div>
+  } @else {
+    @if (errorMessage) {
+      <div class="alert alert-error" role="alert">{{ errorMessage }}</div>
+    }
+
+    <section class="card repo-form">
+      <h2 class="section-title">Repository</h2>
+      <div class="form-row">
+        <label for="owner">Owner (user or org)</label>
+        <input id="owner" type="text" [(ngModel)]="owner" placeholder="e.g. octocat" class="input" />
+      </div>
+      <div class="form-row">
+        <label for="repo">Repo name</label>
+        <input id="repo" type="text" [(ngModel)]="repo" placeholder="e.g. Hello-World" class="input" />
+      </div>
+      @if (repoUrl) {
+        <p class="repo-open">
+          <a [href]="repoUrl" target="_blank" rel="noopener noreferrer" class="commit-link">View codebase on GitHub</a>
+        </p>
+      }
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Branches</h2>
+      <button type="button" class="btn btn-primary" [disabled]="!repoFilled || loadingBranches" (click)="loadBranches()">
+        {{ loadingBranches ? 'Loading…' : 'Load branches' }}
+      </button>
+      @if (branches.length > 0) {
+        <ul class="branch-list">
+          @for (b of branches; track b.name) {
+            <li class="branch-item">
+              <span class="branch-name">{{ b.name }}</span>
+              @if (b.commit?.sha) {
+                <code class="branch-sha">{{ b.commit?.sha?.slice(0, 7) }}</code>
+              }
+            </li>
+          }
+        </ul>
+      } @else if (!loadingBranches && repoFilled && branches.length === 0 && owner && repo) {
+        <p class="hint">Click "Load branches" to fetch. No branches shown yet.</p>
+      }
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Latest commit</h2>
+      <div class="form-row">
+        <label for="branch">Branch (optional)</label>
+        <select id="branch" class="input" [ngModel]="branch" (ngModelChange)="branch = $event || null">
+          <option [ngValue]="null">Default branch</option>
+          @for (b of branches; track b.name) {
+            <option [ngValue]="b.name">{{ b.name }}</option>
+          }
+        </select>
+      </div>
+      <button type="button" class="btn btn-primary" [disabled]="!repoFilled || loadingCommit" (click)="loadLatestCommit()">
+        {{ loadingCommit ? 'Loading…' : 'Load latest commit' }}
+      </button>
+      @if (latestCommit) {
+        <div class="commit-box">
+          <p class="commit-message">{{ latestCommit.commit?.message ?? '—' }}</p>
+          <p class="commit-meta">
+            <code>{{ latestCommit.sha?.slice(0, 7) }}</code>
+            @if (latestCommit.commit?.author?.date) {
+              <span>{{ latestCommit.commit?.author?.date }}</span>
+            }
+          </p>
+          @if (latestCommit.html_url) {
+            <a [href]="latestCommit.html_url" target="_blank" rel="noopener noreferrer" class="commit-link">View on GitHub</a>
+          }
+        </div>
+      }
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Commit history</h2>
+      <button type="button" class="btn btn-primary" [disabled]="!repoFilled || loadingCommits" (click)="loadCommits()">
+        {{ loadingCommits ? 'Loading…' : 'Load commit history' }}
+      </button>
+      @if (commits.length > 0) {
+        <ul class="commit-history-list">
+          @for (c of commits; track c.sha) {
+            <li class="commit-history-item">
+              <code class="commit-sha">{{ c.sha?.slice(0, 7) }}</code>
+              <span class="commit-msg">{{ c.commit?.message ?? '—' }}</span>
+              @if (c.commit?.author?.date) {
+                <span class="commit-date">{{ c.commit?.author?.date }}</span>
+              }
+              @if (c.html_url) {
+                <a [href]="c.html_url" target="_blank" rel="noopener noreferrer" class="commit-link-inline">View</a>
+              }
+            </li>
+          }
+        </ul>
+      } @else if (!loadingCommits && repoFilled && commits.length === 0 && owner && repo) {
+        <p class="hint">Click "Load commit history" to see the full history for this repo.</p>
+      }
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Create issue</h2>
+      <div class="form-row">
+        <label for="issueTitle">Title</label>
+        <input id="issueTitle" type="text" [(ngModel)]="issueTitle" placeholder="Issue title" class="input" />
+      </div>
+      <div class="form-row">
+        <label for="issueBody">Body (optional)</label>
+        <textarea id="issueBody" [(ngModel)]="issueBody" placeholder="Description (markdown supported)" class="input textarea" rows="3"></textarea>
+      </div>
+      <button type="button" class="btn btn-primary" [disabled]="!repoFilled || !issueTitle?.trim() || creatingIssue" (click)="createIssue()">
+        {{ creatingIssue ? 'Creating…' : 'Create issue' }}
+      </button>
+      @if (createdIssue) {
+        <div class="created-issue">
+          <p>Issue #{{ createdIssue.number }} created.</p>
+          <a [href]="createdIssue.html_url" target="_blank" rel="noopener noreferrer" class="issue-link">{{ createdIssue.title }}</a>
+        </div>
+      }
+    </section>
+  }
+</div>

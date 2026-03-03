@@ -115,6 +115,11 @@
                 @if (u.nextUpdateDue) {
                   <p class="update-next-due">Next due: {{ formatDate(u.nextUpdateDue) }}</p>
                 }
+                @if (u.githubRepoUrl) {
+                  <p class="update-repo">
+                    <a [href]="u.githubRepoUrl" target="_blank" rel="noopener noreferrer" class="repo-link">View repo on GitHub</a>
+                  </p>
+                }
                 <div class="update-actions">
                   <button type="button" class="btn-edit" (click)="openEdit(u)">Edit</button>
                   <button type="button" class="btn-delete" (click)="confirmDelete(u)">Delete</button>
@@ -229,6 +234,11 @@
             <label for="nextUpdateDue">Next update due (optional)</label>
             <input id="nextUpdateDue" type="datetime-local" formControlName="nextUpdateDue" />
             <span class="field-hint">Reminder will be added to Google Calendar when enabled.</span>
+          </div>
+          <div class="field">
+            <label for="githubRepoUrl">GitHub repository URL (optional)</label>
+            <input id="githubRepoUrl" type="url" formControlName="githubRepoUrl" placeholder="https://github.com/owner/repo" />
+            <span class="field-hint">Link your repo so the client can view history and codebase on the GitHub page.</span>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" (click)="closeModal()" [disabled]="saving">Cancel</button>

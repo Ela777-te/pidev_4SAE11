@@ -19,6 +19,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST API for comments on progress updates: list (full or paged), get by id, by progress update, by user, create, update, patch, delete.
+ * All endpoints are under /api/progress-comments.
+ */
 @RestController
 @RequestMapping("/api/progress-comments")
 @RequiredArgsConstructor
@@ -28,6 +32,7 @@ public class ProgressCommentController {
 
     private final ProgressCommentService progressCommentService;
 
+    /** Returns all progress comments, or a paginated list if page/size query params are provided. */
     @GetMapping
     @Operation(
             summary = "List comments",
@@ -49,6 +54,7 @@ public class ProgressCommentController {
         return ResponseEntity.ok(progressCommentService.findAll());
     }
 
+    /** Returns a single comment by its id. 404 if not found. */
     @GetMapping("/{id}")
     @Operation(summary = "Get comment by ID", description = "Returns a single comment by its id.")
     @ApiResponses({
@@ -60,6 +66,7 @@ public class ProgressCommentController {
         return ResponseEntity.ok(progressCommentService.findById(id));
     }
 
+    /** Returns all comments for the given progress update. */
     @GetMapping("/progress-update/{progressUpdateId}")
     @Operation(summary = "List comments by progress update", description = "Returns all comments for a given progress update.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -68,6 +75,7 @@ public class ProgressCommentController {
         return ResponseEntity.ok(progressCommentService.findByProgressUpdateId(progressUpdateId));
     }
 
+    /** Returns all comments created by the given user. */
     @GetMapping("/by-user/{userId}")
     @Operation(summary = "List comments by user", description = "Returns all comments created by the given user.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -76,6 +84,7 @@ public class ProgressCommentController {
         return ResponseEntity.ok(progressCommentService.findByUserId(userId));
     }
 
+    /** Creates a new comment on a progress update. Progress update must exist. Returns 201 with created comment. */
     @PostMapping
     @Operation(summary = "Create comment", description = "Adds a comment to a progress update. The progress update must exist (create one via Progress Updates first).")
     @ApiResponses({
@@ -90,6 +99,7 @@ public class ProgressCommentController {
                         request.getMessage()));
     }
 
+    /** Updates the message of an existing comment. Returns 200 with updated comment; 404 if not found. */
     @PutMapping("/{id}")
     @Operation(summary = "Update comment", description = "Updates the message of an existing comment. Only message is updated; progressUpdateId and userId are ignored in the body.")
     @ApiResponses({
@@ -102,6 +112,7 @@ public class ProgressCommentController {
         return ResponseEntity.ok(progressCommentService.update(id, request.getMessage()));
     }
 
+    /** Partially updates a comment (currently only message). If no message in body, returns current comment unchanged. */
     @PatchMapping("/{id}")
     @Operation(
             summary = "Partially update comment",
@@ -121,6 +132,7 @@ public class ProgressCommentController {
         return ResponseEntity.ok(progressCommentService.findById(id));
     }
 
+    /** Deletes a comment by id. Returns 204 No Content. */
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete comment", description = "Deletes a comment by id.")
     @ApiResponses({

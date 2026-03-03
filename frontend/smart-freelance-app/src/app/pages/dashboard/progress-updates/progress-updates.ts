@@ -29,6 +29,10 @@ export interface ProjectWithDetails {
   application?: ProjectApplication;
 }
 
+/**
+ * Freelancer progress-updates page: lists projects and stats, due/overdue projects, calendar events,
+ * and CRUD for progress updates with optional sync of project deadline to calendar. Loads projects and stats on init.
+ */
 @Component({
   selector: 'app-progress-updates',
   standalone: true,
@@ -93,6 +97,7 @@ export class ProgressUpdates implements OnInit, OnDestroy {
       description: ['', [Validators.maxLength(DESCRIPTION_MAX)]],
       progressPercentage: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
       nextUpdateDue: [null as string | null],
+      githubRepoUrl: [null as string | null],
     });
     this.filterForm = this.fb.group({ search: [''] });
     this.projectFilterForm = this.fb.group({ search: [''] });
@@ -343,7 +348,7 @@ export class ProgressUpdates implements OnInit, OnDestroy {
     this.editing = null;
     this.errorMessage = '';
     this.minProgressHint = this.updates.length ? Math.max(...this.updates.map((x) => x.progressPercentage)) : 0;
-    this.form.reset({ title: '', description: '', progressPercentage: this.minProgressHint, nextUpdateDue: null });
+    this.form.reset({ title: '', description: '', progressPercentage: this.minProgressHint, nextUpdateDue: null, githubRepoUrl: null });
     this.form.get('progressPercentage')?.setValidators([
       Validators.required,
       Validators.min(this.minProgressHint),
@@ -365,6 +370,7 @@ export class ProgressUpdates implements OnInit, OnDestroy {
       description: u.description ?? '',
       progressPercentage: u.progressPercentage,
       nextUpdateDue: nextDue,
+      githubRepoUrl: u.githubRepoUrl ?? '',
     });
     this.form.get('progressPercentage')?.setValidators([
       Validators.required,
@@ -394,6 +400,7 @@ export class ProgressUpdates implements OnInit, OnDestroy {
       description: (v.description as string)?.trim() || null,
       progressPercentage: Number(v.progressPercentage),
       nextUpdateDue,
+      githubRepoUrl: (v.githubRepoUrl as string)?.trim() || null,
     };
     this.saving = true;
     if (this.editing) {

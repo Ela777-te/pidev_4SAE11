@@ -474,6 +474,15 @@
     color: $primary-600;
     margin: 0 0 $spacing-sm;
   }
+  .update-repo {
+    margin: 0 0 $spacing-sm;
+  }
+  .repo-link {
+    font-size: $font-size-sm;
+    color: $primary-600;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
 
   .update-actions {
     display: flex;

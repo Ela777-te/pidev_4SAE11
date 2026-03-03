@@ -25,6 +25,10 @@ Chart.register(...registerables);
 
 const SEARCH_DEBOUNCE_MS = 350;
 
+/**
+ * Admin planning management page: health check, dashboard stats, stalled projects, freelancer/project rankings,
+ * filtered progress updates list, and CRUD for progress updates. Loads planning health and stats on init.
+ */
 @Component({
   selector: 'app-planning-management',
   standalone: true,

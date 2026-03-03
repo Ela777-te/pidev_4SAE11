@@ -63,6 +63,10 @@ public class ProgressUpdate {
     @Schema(description = "Google Calendar event ID for the 'next update due' reminder (used to update/delete when nextUpdateDue changes)", accessMode = Schema.AccessMode.READ_ONLY)
     private String nextDueCalendarEventId;
 
+    @Column(nullable = true, length = 512)
+    @Schema(description = "Optional GitHub repository URL (e.g. https://github.com/owner/repo) linked to this progress update")
+    private String githubRepoUrl;
+
     @OneToMany(mappedBy = "progressUpdate", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @Schema(accessMode = Schema.AccessMode.READ_ONLY)

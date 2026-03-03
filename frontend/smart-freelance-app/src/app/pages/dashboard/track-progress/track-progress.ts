@@ -1,6 +1,6 @@
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { UserService, User } from '../../../core/services/user.service';
@@ -29,10 +29,25 @@ export interface ClientProgressStats {
   averageProgressPercentage: number | null;
 }
 
+/** Parse GitHub URL to { owner, repo } or null. Supports https://github.com/owner/repo */
+function parseGithubRepoUrl(url: string | null | undefined): { owner: string; repo: string } | null {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const match = trimmed.match(/github\.com[/]([^/]+)[/]([^/]+)/i);
+  if (!match) return null;
+  const owner = match[1];
+  const repo = match[2].replace(/\.git$/, '');
+  return owner && repo ? { owner, repo } : null;
+}
+
+/**
+ * Client track-progress page: project stats, stalled projects, filtered progress updates by project,
+ * and CRUD for comments on progress updates. Loads project stats and updates on init.
+ */
 @Component({
   selector: 'app-track-progress',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, Card],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, Card],
   templateUrl: './track-progress.html',
   styleUrl: './track-progress.scss',
 })
@@ -76,6 +91,7 @@ export class TrackProgress implements OnInit, OnDestroy {
   totalPages = 0;
 
   readonly messageMax = MESSAGE_MAX;
+  readonly parseGithubRepoUrl = parseGithubRepoUrl;
 
   constructor(
     private auth: AuthService,

@@ -19,6 +19,11 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * REST API for calendar: sync project deadline to calendar for a freelancer, and list events in a time range.
+ * When userId/role are provided, returns events scoped to that user; otherwise uses Google Calendar if available or DB events.
+ * All endpoints are under /api/calendar.
+ */
 @RestController
 @RequestMapping("/api/calendar")
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ public class CalendarController {
     private final ProgressUpdateService progressUpdateService;
     private final CalendarEventService calendarEventService;
 
+    /** Ensures the project deadline is in the calendar for the given freelancer. Idempotent; notifies when first synced. */
     @PostMapping("/sync-project-deadline")
     @Operation(
             summary = "Sync project deadline to calendar",
@@ -43,6 +49,7 @@ public class CalendarController {
         return ResponseEntity.ok().build();
     }
 
+    /** Returns calendar events in the given time range. With userId/role, scopes to that user; else Google Calendar or DB. */
     @GetMapping("/events")
     @Operation(
             summary = "List calendar events",
@@ -75,7 +82,7 @@ public class CalendarController {
         return ResponseEntity.ok(dtos);
     }
 
-    /** Parse ISO-8601 string (with Z or offset) to LocalDateTime in system default zone; on failure return defaultValue. */
+    /** Parses ISO-8601 string (with Z or offset) to LocalDateTime in system default zone; on failure returns defaultValue. */
     private static LocalDateTime parseDateTime(String value, LocalDateTime defaultValue) {
         if (value == null || value.isBlank()) return defaultValue;
         try {
@@ -85,6 +92,7 @@ public class CalendarController {
         }
     }
 
+    /** Converts a Google Calendar Event to CalendarEventDto (id, summary, start, end, description). */
     private CalendarEventDto toDto(Event e) {
         LocalDateTime start = null;
         LocalDateTime end = null;

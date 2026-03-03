@@ -23,6 +23,7 @@ public final class ProgressUpdateSpecification {
     private ProgressUpdateSpecification() {
     }
 
+    /** Builds a JPA Specification that filters ProgressUpdate by the given optional projectId, freelancerId, contractId, progress range, date range, and case-insensitive search on title/description. */
     public static Specification<ProgressUpdate> filtered(
             Optional<Long> projectId,
             Optional<Long> freelancerId,

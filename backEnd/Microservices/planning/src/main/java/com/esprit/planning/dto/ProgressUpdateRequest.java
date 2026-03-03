@@ -33,4 +33,7 @@ public class ProgressUpdateRequest {
 
     @Schema(description = "Optional: next progress update due date (synced to Google Calendar when enabled)", example = "2025-03-15T14:00:00")
     private LocalDateTime nextUpdateDue;
+
+    @Schema(description = "Optional: GitHub repository URL linked to this update (e.g. https://github.com/owner/repo)", example = "https://github.com/octocat/Hello-World")
+    private String githubRepoUrl;
 }

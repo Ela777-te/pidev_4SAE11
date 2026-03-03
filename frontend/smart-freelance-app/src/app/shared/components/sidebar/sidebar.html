@@ -1,14 +1,54 @@
 <aside class="sidebar">
   <nav class="sidebar-nav">
     @for (item of navItems; track item.route) {
-      <a
-        [routerLink]="item.route"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' || item.route === '/admin' }"
-        class="sidebar-link">
-        <span class="sidebar-icon">{{ item.icon }}</span>
-        <span class="sidebar-label">{{ item.label }}</span>
-      </a>
+      @if (item.children && item.children.length > 0) {
+        <div class="sidebar-group">
+          <button
+            type="button"
+            class="sidebar-link sidebar-link--trigger"
+            [class.open]="isDropdownOpen(item)"
+            (click)="toggleDropdown(item)"
+            [attr.aria-expanded]="isDropdownOpen(item)"
+            aria-haspopup="true">
+            <span class="sidebar-icon">{{ item.icon }}</span>
+            <span class="sidebar-label">{{ item.label }}</span>
+            <svg class="sidebar-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          @if (isDropdownOpen(item)) {
+            <div class="sidebar-group__children">
+              <a
+                [routerLink]="item.route"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+                class="sidebar-link sidebar-link--child">
+                <span class="sidebar-icon">{{ item.icon }}</span>
+                <span class="sidebar-label">Overview</span>
+              </a>
+              @for (child of item.children; track child.route) {
+                <a
+                  [routerLink]="child.route"
+                  routerLinkActive="active"
+                  [routerLinkActiveOptions]="{ exact: false }"
+                  class="sidebar-link sidebar-link--child">
+                  <span class="sidebar-icon">{{ child.icon }}</span>
+                  <span class="sidebar-label">{{ child.label }}</span>
+                </a>
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' || item.route === '/admin' }"
+          class="sidebar-link">
+          <span class="sidebar-icon">{{ item.icon }}</span>
+          <span class="sidebar-label">{{ item.label }}</span>
+        </a>
+      }
     }
   </nav>
 </aside>

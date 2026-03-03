@@ -99,6 +99,13 @@
                   <p class="update-desc">{{ u.description }}</p>
                 }
                 <p class="update-meta">Freelancer ID: {{ u.freelancerId }} · Updated {{ formatDate(u.updatedAt) }}</p>
+                @if (u.githubRepoUrl) {
+                  @if (parseGithubRepoUrl(u.githubRepoUrl); as parsed) {
+                    <a [routerLink]="['/dashboard/github']" [queryParams]="{ owner: parsed.owner, repo: parsed.repo }" class="repo-link">View repo history &amp; codebase on GitHub</a>
+                  } @else {
+                    <a [href]="u.githubRepoUrl" target="_blank" rel="noopener noreferrer" class="repo-link">Open GitHub repo</a>
+                  }
+                }
               </div>
               <div class="comments-block">
                 <h4>Your feedback ({{ (commentsByUpdateId[u.id] || []).length }})</h4>

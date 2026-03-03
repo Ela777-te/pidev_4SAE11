@@ -15,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Business logic for comments on progress updates: list (full or paged), find by id/progress update/user, create, update, delete.
+ * Validates that the progress update and user exist; notifies the freelancer when someone else comments.
+ */
 @Service
 @RequiredArgsConstructor
 public class ProgressCommentService {
@@ -24,33 +28,39 @@ public class ProgressCommentService {
     private final UserClient userClient;
     private final PlanningNotificationService planningNotificationService;
 
+    /** Returns all progress comments. */
     @Transactional(readOnly = true)
     public List<ProgressComment> findAll() {
         return progressCommentRepository.findAll();
     }
 
+    /** Returns a paginated list of progress comments. */
     @Transactional(readOnly = true)
     public Page<ProgressComment> findAllPaged(int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
         return progressCommentRepository.findAll(pageable);
     }
 
+    /** Returns a comment by id; throws if not found. */
     @Transactional(readOnly = true)
     public ProgressComment findById(Long id) {
         return progressCommentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("ProgressComment not found with id: " + id));
     }
 
+    /** Returns all comments for the given progress update. */
     @Transactional(readOnly = true)
     public List<ProgressComment> findByProgressUpdateId(Long progressUpdateId) {
         return progressCommentRepository.findByProgressUpdate_Id(progressUpdateId);
     }
 
+    /** Returns all comments created by the given user. */
     @Transactional(readOnly = true)
     public List<ProgressComment> findByUserId(Long userId) {
         return progressCommentRepository.findByUserId(userId);
     }
 
+    /** Creates a comment on a progress update; validates progress update and user exist; notifies freelancer if commenter is someone else. */
     @Transactional
     public ProgressComment create(Long progressUpdateId, Long userId, String message) {
         ProgressUpdate progressUpdate = progressUpdateRepository.findById(progressUpdateId)
@@ -84,6 +94,7 @@ public class ProgressCommentService {
         return saved;
     }
 
+    /** Updates the message of an existing comment and notifies the freelancer. */
     @Transactional
     public ProgressComment update(Long id, String message) {
         ProgressComment existing = findById(id);
@@ -93,6 +104,7 @@ public class ProgressCommentService {
         return saved;
     }
 
+    /** Deletes a comment and notifies the freelancer. */
     @Transactional
     public void deleteById(Long id) {
         ProgressComment existing = findById(id);

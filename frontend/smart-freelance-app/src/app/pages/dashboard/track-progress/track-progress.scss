@@ -441,6 +441,14 @@
     color: $neutral-400;
     margin: $spacing-xs 0 0;
   }
+  .repo-link {
+    display: inline-block;
+    margin-top: $spacing-sm;
+    font-size: $font-size-sm;
+    color: $primary-600;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
 
   // ── Comments Block ─────────────────────────────────────────────
   .comments-block {

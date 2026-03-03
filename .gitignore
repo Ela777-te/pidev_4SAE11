@@ -15,6 +15,9 @@ backEnd/Microservices/Offer/src/main/resources/application-local.properties
 **/serviceAccountKey*.json
 **/firebase-credentials*.json
 
+# GitHub token (never commit); set GITHUB_TOKEN env from this file locally
+githubToken.txt
+
 # Google Cloud / Calendar API credentials (never commit)
 *google*credentials*.json
 googleproject-*.json

@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.Collection;
 import java.util.List;
 
+/** JPA repository for ProgressComment entity. Provides find by progress update, by user, and count by update IDs. */
 @Repository
 public interface ProgressCommentRepository extends JpaRepository<ProgressComment, Long> {
 

@@ -1,5 +1,5 @@
-import { Component, Input } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, Input, signal, inject } from '@angular/core';
+import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -7,6 +7,7 @@ interface NavItem {
   label: string;
   route: string;
   icon: string;
+  children?: NavItem[];
 }
 
 @Component({
@@ -19,7 +20,25 @@ interface NavItem {
 export class Sidebar {
   @Input() variant: 'dashboard' | 'admin' = 'dashboard';
 
+  /** Route of the dropdown group currently open (e.g. '/admin/planning'). */
+  openDropdownRoute = signal<string | null>(null);
+
+  private router = inject(Router);
+
   constructor(public auth: AuthService) {}
+
+  isDropdownOpen(item: NavItem): boolean {
+    const current = this.router.url;
+    const route = item.route;
+    const childRoutes = item.children?.map((c) => c.route) ?? [];
+    const isActive = current === route || childRoutes.some((r) => current.startsWith(r));
+    return this.openDropdownRoute() === route || isActive;
+  }
+
+  toggleDropdown(item: NavItem): void {
+    const route = item.route;
+    this.openDropdownRoute.update((prev) => (prev === route ? null : route));
+  }
 
   get navItems(): NavItem[] {
     if (this.variant === 'admin') {
@@ -29,8 +48,15 @@ export class Sidebar {
         { label: 'Contracts', route: '/admin/contracts', icon: '📋' },
         { label: 'Offers', route: '/admin/offers', icon: '💼' },
         { label: 'Projects', route: '/admin/projects', icon: '🚀' },
-        { label: 'Planning', route: '/admin/planning', icon: '📅' },
-        { label: 'Calendar', route: '/dashboard/calendar', icon: '📆' },
+        {
+          label: 'Planning',
+          route: '/admin/planning',
+          icon: '📅',
+          children: [
+          { label: 'Calendar', route: '/admin/calendar', icon: '📆' },
+          { label: 'GitHub', route: '/admin/github', icon: '🐙' },
+        ],
+        },
         { label: 'Evaluations', route: '/admin/evaluations', icon: '📝' },
         { label: 'Reviews', route: '/admin/reviews', icon: '⭐' },
         { label: 'Settings', route: '/admin/settings', icon: '⚙️' },
@@ -54,6 +80,7 @@ export class Sidebar {
         { label: 'Reviews about me', route: '/dashboard/reviews/about-me', icon: '💬' },
         { label: 'My Contracts', route: '/dashboard/my-contracts', icon: '📋' },
         { label: 'Track Progress', route: '/dashboard/track-progress', icon: '📊' },
+        { label: 'GitHub', route: '/dashboard/github', icon: '🐙' },
         { label: 'Messages', route: '/dashboard/messages', icon: '💬' },
         { label: 'Notifications', route: '/dashboard/notifications', icon: '🔔' },
         { label: 'Profile', route: '/dashboard/profile', icon: '👤' },
@@ -71,6 +98,7 @@ export class Sidebar {
         { label: 'Reviews about me', route: '/dashboard/reviews/about-me', icon: '💬' },
         { label: 'My Contracts', route: '/dashboard/my-contracts', icon: '📋' },
         { label: 'My Progress Updates', route: '/dashboard/progress-updates', icon: '📊' },
+        { label: 'GitHub', route: '/dashboard/github', icon: '🐙' },
         { label: 'My Portfolio', route: '/dashboard/my-portfolio', icon: '🎨' },
         { label: 'Messages', route: '/dashboard/messages', icon: '💬' },
         { label: 'Notifications', route: '/dashboard/notifications', icon: '🔔' },

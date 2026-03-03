@@ -1,0 +1,292 @@
+@import '../../../../styles/variables';
+
+.github-page {
+  max-width: 800px;
+  padding: $spacing-3xl $spacing-lg;
+  margin: 0 auto;
+  font-family: $font-family;
+}
+
+.github-header {
+  margin-bottom: $spacing-xl;
+
+  h1 {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-3xl;
+    font-weight: $font-weight-extrabold;
+    background: $gradient-primary;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: $font-size-sm;
+    color: $neutral-500;
+    margin: 0;
+  }
+}
+
+.loading-msg {
+  margin: 0 0 $spacing-lg;
+  font-size: $font-size-sm;
+  color: $neutral-500;
+}
+
+.github-disabled {
+  padding: $spacing-lg;
+  background: $neutral-100;
+  border: 1px solid $neutral-200;
+  border-radius: $radius-lg;
+
+  code {
+    background: $neutral-200;
+    padding: 2px 6px;
+    border-radius: $radius-sm;
+    font-size: $font-size-sm;
+  }
+
+  .repo-fallback {
+    margin-top: $spacing-md;
+  }
+}
+
+.card {
+  background: $white;
+  border: 1px solid $neutral-200;
+  border-radius: $radius-xl;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  box-shadow: $shadow-sm;
+}
+
+.section-title {
+  margin: 0 0 $spacing-md;
+  font-size: $font-size-base;
+  font-weight: $font-weight-bold;
+  color: $neutral-800;
+  padding-bottom: $spacing-sm;
+  border-bottom: 1px solid $neutral-200;
+}
+
+.form-row {
+  margin-bottom: $spacing-md;
+
+  label {
+    display: block;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $neutral-700;
+    margin-bottom: $spacing-xs;
+  }
+}
+
+.input {
+  width: 100%;
+  max-width: 400px;
+  padding: $spacing-sm $spacing-md;
+  font-size: $font-size-base;
+  border: 1px solid $neutral-300;
+  border-radius: $radius-md;
+
+  &.textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+}
+
+.btn {
+  padding: $spacing-sm $spacing-lg;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-md;
+  cursor: pointer;
+  border: none;
+  transition: $transition-fast;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &.btn-primary {
+    color: $white;
+    background: $gradient-primary;
+
+    &:hover:not(:disabled) {
+      opacity: 0.95;
+    }
+  }
+}
+
+.alert {
+  padding: $spacing-md $spacing-lg;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-lg;
+
+  &.alert-error {
+    background: rgba($error-500, 0.1);
+    border: 1px solid $error-500;
+    color: $error-700;
+  }
+}
+
+.branch-list {
+  margin: $spacing-md 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.branch-item {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $neutral-100;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.branch-name {
+  font-weight: $font-weight-medium;
+  color: $neutral-800;
+}
+
+.branch-sha {
+  font-size: $font-size-xs;
+  color: $neutral-500;
+  background: $neutral-100;
+  padding: 2px 6px;
+  border-radius: $radius-sm;
+}
+
+.hint {
+  margin: $spacing-md 0 0;
+  font-size: $font-size-sm;
+  color: $neutral-500;
+}
+
+.commit-box {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background: $neutral-50;
+  border: 1px solid $neutral-200;
+  border-radius: $radius-md;
+}
+
+.commit-message {
+  margin: 0 0 $spacing-xs;
+  font-size: $font-size-sm;
+  color: $neutral-800;
+  white-space: pre-wrap;
+}
+
+.commit-meta {
+  margin: 0;
+  font-size: $font-size-xs;
+  color: $neutral-500;
+
+  code {
+    margin-right: $spacing-sm;
+    background: $neutral-200;
+    padding: 2px 4px;
+    border-radius: $radius-sm;
+  }
+}
+
+.repo-open {
+  margin: $spacing-md 0 0;
+}
+
+.commit-link {
+  display: inline-block;
+  margin-top: $spacing-sm;
+  font-size: $font-size-sm;
+  color: $primary-600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.commit-history-list {
+  margin: $spacing-md 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.commit-history-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $neutral-100;
+  font-size: $font-size-sm;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.commit-sha {
+  flex-shrink: 0;
+  font-size: $font-size-xs;
+  background: $neutral-100;
+  padding: 2px 6px;
+  border-radius: $radius-sm;
+  color: $neutral-600;
+}
+
+.commit-msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: $neutral-800;
+}
+
+.commit-date {
+  font-size: $font-size-xs;
+  color: $neutral-500;
+}
+
+.commit-link-inline {
+  font-size: $font-size-xs;
+  color: $primary-600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.created-issue {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background: rgba($success-500, 0.1);
+  border: 1px solid $success-500;
+  border-radius: $radius-md;
+
+  p {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-sm;
+    color: $neutral-700;
+  }
+}
+
+.issue-link {
+  font-size: $font-size-sm;
+  color: $primary-600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

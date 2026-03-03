@@ -34,6 +34,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * REST API for progress updates: CRUD, filtering, export, stats, rankings, validation, and next-allowed percentage.
+ * This controller exposes all endpoints under /api/progress-updates for the planning microservice.
+ */
 @RestController
 @RequestMapping("/api/progress-updates")
 @RequiredArgsConstructor
@@ -47,11 +51,13 @@ public class ProgressUpdateController {
     @Value("${welcome.message}")
     private String welcomeMessage;
 
+    /** Returns the welcome message from configuration. Used for health or discovery. */
     @GetMapping("/welcome")
     public String welcome() {
         return welcomeMessage;
     }
 
+    /** Returns a paginated list of progress updates with optional filters (project, freelancer, contract, progress range, dates) and search on title/description. */
     @GetMapping
     @Operation(
             summary = "Paginated list with filters and search",
@@ -85,6 +91,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(result);
     }
 
+    /** Exports progress updates matching the same filters as the list endpoint as CSV. Returns attachment with filename progress-updates-export.csv. */
     @GetMapping("/export")
     @Operation(
             summary = "Export progress updates",
@@ -116,7 +123,7 @@ public class ProgressUpdateController {
         );
 
         StringBuilder sb = new StringBuilder();
-        sb.append("id,projectId,contractId,freelancerId,title,description,progressPercentage,createdAt,updatedAt,commentCount\n");
+        sb.append("id,projectId,contractId,freelancerId,title,description,progressPercentage,createdAt,updatedAt,githubRepoUrl,commentCount\n");
         for (ProgressUpdate update : result) {
             long commentCount = update.getComments() != null ? update.getComments().size() : 0;
             sb.append(csv(update.getId()))
@@ -128,6 +135,7 @@ public class ProgressUpdateController {
                     .append(',').append(csv(update.getProgressPercentage()))
                     .append(',').append(csv(update.getCreatedAt()))
                     .append(',').append(csv(update.getUpdatedAt()))
+                    .append(',').append(csv(update.getGithubRepoUrl()))
                     .append(',').append(csv(commentCount))
                     .append('\n');
         }
@@ -138,6 +146,7 @@ public class ProgressUpdateController {
                 .body(sb.toString());
     }
 
+    /** Escapes a value for CSV (quotes if contains comma, quote, or newline). */
     private static String csv(Object value) {
         if (value == null) {
             return "";
@@ -150,6 +159,7 @@ public class ProgressUpdateController {
         return str;
     }
 
+    /** Parses sort string (e.g. "createdAt,desc") into Spring Sort; defaults to createdAt DESC if null or blank. */
     private static Sort parseSort(String sort) {
         if (sort == null || sort.isBlank()) {
             return Sort.by(Sort.Direction.DESC, "createdAt");
@@ -162,6 +172,7 @@ public class ProgressUpdateController {
         return Sort.by(direction, parts[0].trim());
     }
 
+    /** Returns a single progress update by its id. 404 if not found. */
     @GetMapping("/{id}")
     @Operation(summary = "Get progress update by ID", description = "Returns a single progress update by its id.")
     @ApiResponses({
@@ -173,6 +184,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.findById(id));
     }
 
+    /** Returns a single progress update with all its comments in one response. 404 if update not found. */
     @GetMapping("/{id}/with-comments")
     @Operation(
             summary = "Get progress update with comments",
@@ -193,6 +205,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(dto);
     }
 
+    /** Returns all progress updates for the given project. */
     @GetMapping("/project/{projectId}")
     @Operation(summary = "List by project", description = "Returns all progress updates for the given project.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -201,6 +214,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.findByProjectId(projectId));
     }
 
+    /** Returns all progress updates for the given contract. */
     @GetMapping("/contract/{contractId}")
     @Operation(summary = "List by contract", description = "Returns all progress updates for the given contract.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -209,6 +223,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.findByContractId(contractId));
     }
 
+    /** Returns all progress updates submitted by the given freelancer. */
     @GetMapping("/freelancer/{freelancerId}")
     @Operation(summary = "List by freelancer", description = "Returns all progress updates submitted by the given freelancer.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -217,6 +232,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.findByFreelancerId(freelancerId));
     }
 
+    /** Returns the latest progress update for a project, freelancer, or contract. Exactly one of projectId, freelancerId, or contractId must be provided; 400 if zero or more than one, 404 if none found. */
     @GetMapping("/latest")
     @Operation(
             summary = "Get latest progress update",
@@ -258,6 +274,7 @@ public class ProgressUpdateController {
                         .body(Map.of("message", "No progress update found for the provided criteria")));
     }
 
+    /** Returns progress trend points (date, progress %) for the project in the given date range; defaults to last 30 days if from/to omitted. */
     @GetMapping("/trend/project/{projectId}")
     @Operation(summary = "Progress trend by project", description = "Returns progress trend points (date, progress %) for the project in the given date range. If from/to omitted, uses last 30 days.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -270,6 +287,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.getProgressTrendByProject(projectId, fromDate, toDate));
     }
 
+    /** Returns projects with no progress update in the last N days (default 7). */
     @GetMapping("/stalled/projects")
     @Operation(summary = "Stalled projects", description = "Returns projects with no progress update in the last N days (default 7).")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -278,6 +296,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.getProjectIdsWithStalledProgress(daysWithoutUpdate));
     }
 
+    /** Alias for stalled projects: returns projects due or overdue for an update (no update in N days). */
     @GetMapping("/due-or-overdue")
     @Operation(
             summary = "Due or overdue projects",
@@ -289,6 +308,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.getProjectIdsWithStalledProgress(daysWithoutUpdate));
     }
 
+    /** Returns freelancers ranked by progress update count, with comment count; limit caps the number returned. */
     @GetMapping("/rankings/freelancers")
     @Operation(summary = "Top freelancers by activity", description = "Returns freelancers ranked by progress update count, with comment count on their updates.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -297,6 +317,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(progressUpdateService.getFreelancersByActivity(limit));
     }
 
+    /** Returns projects ranked by progress update count, optionally filtered by date range. */
     @GetMapping("/rankings/projects")
     @Operation(summary = "Most active projects", description = "Returns projects ranked by progress update count, optionally filtered by date range.")
     @ApiResponse(responseCode = "200", description = "Success")
@@ -308,6 +329,7 @@ public class ProgressUpdateController {
                 limit, Optional.ofNullable(from), Optional.ofNullable(to)));
     }
 
+    /** Creates a new progress update. Validates and enforces cannot-decrease rule; returns 201 with created entity. */
     @PostMapping
     @Operation(summary = "Create progress update", description = "Creates a new progress update. Do not send id, createdAt or updatedAt.")
     @ApiResponses({
@@ -323,10 +345,12 @@ public class ProgressUpdateController {
                 .description(request.getDescription())
                 .progressPercentage(request.getProgressPercentage())
                 .nextUpdateDue(request.getNextUpdateDue())
+                .githubRepoUrl(request.getGithubRepoUrl())
                 .build();
         return ResponseEntity.status(HttpStatus.CREATED).body(progressUpdateService.create(entity));
     }
 
+    /** Updates an existing progress update by id. Enforces cannot-decrease rule; 404 if not found. */
     @PutMapping("/{id}")
     @Operation(summary = "Update progress update", description = "Updates an existing progress update by id.")
     @ApiResponses({
@@ -344,10 +368,12 @@ public class ProgressUpdateController {
                 .description(request.getDescription())
                 .progressPercentage(request.getProgressPercentage())
                 .nextUpdateDue(request.getNextUpdateDue())
+                .githubRepoUrl(request.getGithubRepoUrl())
                 .build();
         return ResponseEntity.ok(progressUpdateService.update(id, entity));
     }
 
+    /** Deletes a progress update and its comments. Returns 204 No Content. */
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete progress update", description = "Deletes a progress update and its comments.")
     @ApiResponses({
@@ -360,6 +386,7 @@ public class ProgressUpdateController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Returns the minimum allowed progress percentage for the next update of a project (cannot-decrease rule). 400 if projectId missing. */
     @GetMapping("/next-allowed-percentage")
     @Operation(
             summary = "Get next allowed progress percentage",
@@ -382,6 +409,7 @@ public class ProgressUpdateController {
         ));
     }
 
+    /** Validates a progress update request without saving. Returns validation result (valid, minAllowed, provided, errors). */
     @PostMapping("/validate")
     @Operation(
             summary = "Validate progress update without persisting",
@@ -395,6 +423,7 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(response);
     }
 
+    /** Handles ProgressCannotDecreaseException: returns 400 with message, minAllowed, and provided. */
     @ExceptionHandler(ProgressCannotDecreaseException.class)
     public ResponseEntity<Map<String, Object>> handleProgressCannotDecrease(ProgressCannotDecreaseException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(

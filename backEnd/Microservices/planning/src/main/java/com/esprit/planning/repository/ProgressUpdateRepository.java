@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/** JPA repository for ProgressUpdate entity. Supports filtering via JpaSpecificationExecutor and custom queries for trends, stalled projects, rankings, and calendar. */
 @Repository
 public interface ProgressUpdateRepository extends JpaRepository<ProgressUpdate, Long>, JpaSpecificationExecutor<ProgressUpdate> {
 
