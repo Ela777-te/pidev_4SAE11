@@ -32,26 +32,21 @@ public class ProgressCommentController {
 
     private final ProgressCommentService progressCommentService;
 
-    /** Returns all progress comments, or a paginated list if page/size query params are provided. */
+    /** Returns progress comments with pagination (page, size, sort). Default: page=0, size=20, max size=100. */
     @GetMapping
     @Operation(
-            summary = "List comments",
-            description = "Returns all progress comments. Use the optional page/size parameters for pagination."
+            summary = "List comments (paginated)",
+            description = "Returns progress comments with pagination. Use page, size (max 100), and sort (e.g. createdAt,desc) query parameters."
     )
     @ApiResponse(responseCode = "200", description = "Success")
-    public ResponseEntity<?> getAll(
-            @Parameter(description = "Page index (0-based). If omitted, returns the full list without pagination.")
-            @RequestParam(value = "page", required = false) Integer page,
-            @Parameter(description = "Page size when pagination is used")
-            @RequestParam(value = "size", required = false) Integer size
+    public ResponseEntity<Page<ProgressComment>> getAll(
+            @Parameter(description = "Page index (0-based)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size (max 100)", example = "20") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort (e.g. createdAt,desc or createdAt,asc)") @RequestParam(required = false) String sort
     ) {
-        if (page != null || size != null) {
-            int resolvedPage = page != null ? page : 0;
-            int resolvedSize = size != null ? size : 20;
-            Page<ProgressComment> paged = progressCommentService.findAllPaged(resolvedPage, resolvedSize);
-            return ResponseEntity.ok(paged);
-        }
-        return ResponseEntity.ok(progressCommentService.findAll());
+        int cappedSize = Math.min(Math.max(1, size), 100);
+        Page<ProgressComment> paged = progressCommentService.findAllPaged(page, cappedSize, sort);
+        return ResponseEntity.ok(paged);
     }
 
     /** Returns a single comment by its id. 404 if not found. */

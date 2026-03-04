@@ -1,10 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
-import { TaskService, Task } from '../../../core/services/task.service';
+import { TaskService, Task, TaskFilterParams, PageResponse } from '../../../core/services/task.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ProjectService, Project } from '../../../core/services/project.service';
 import { UserService } from '../../../core/services/user.service';
@@ -24,13 +25,20 @@ const PRIORITY_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
   templateUrl: './project-tasks.html',
   styleUrl: './project-tasks.scss',
 })
-export class ProjectTasks implements OnInit {
+export class ProjectTasks implements OnInit, OnDestroy {
   myProjects: Project[] = [];
   selectedProjectId: number | null = null;
   tasks: Task[] = [];
   loading = true;
   errorMessage = '';
+  page = 0;
+  size = 10;
+  totalElements = 0;
+  totalPages = 0;
   projectForm: FormGroup;
+  filterForm: FormGroup;
+  private searchSubject$ = new Subject<string>();
+  private destroy$ = new Subject<void>();
 
   statusChartData: ChartData<'doughnut', number[], string> = {
     labels: [...STATUS_ORDER],
@@ -66,6 +74,7 @@ export class ProjectTasks implements OnInit {
     private cdr: ChangeDetectorRef
   ) {
     this.projectForm = this.fb.group({ projectId: [null as number | null] });
+    this.filterForm = this.fb.group({ search: [''] });
   }
 
   get doneCount(): number {
@@ -95,6 +104,7 @@ export class ProjectTasks implements OnInit {
   }
 
   ngOnInit(): void {
+    this.setupSearchDebounce();
     const userId = this.auth.getUserId();
     if (userId == null) {
       this.loading = false;
@@ -131,21 +141,60 @@ export class ProjectTasks implements OnInit {
 
   onProjectChange(): void {
     this.selectedProjectId = this.projectForm.get('projectId')?.value ?? null;
+    this.page = 0;
+    this.loadTasks();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private setupSearchDebounce(): void {
+    this.searchSubject$.pipe(
+      debounceTime(350),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.page = 0;
+      this.loadTasks();
+    });
+  }
+
+  onSearchInput(): void {
+    this.searchSubject$.next(this.filterForm.get('search')?.value?.trim() ?? '');
+  }
+
+  goToPage(p: number): void {
+    if (p < 0 || p >= this.totalPages) return;
+    this.page = p;
     this.loadTasks();
   }
 
   loadTasks(): void {
     if (!this.selectedProjectId) {
       this.tasks = [];
+      this.totalElements = 0;
+      this.totalPages = 0;
       this.cdr.detectChanges();
       return;
     }
     this.loading = true;
-    this.taskService.getTasksByProjectId(this.selectedProjectId).subscribe({
-      next: (list) => {
-        this.tasks = list ?? [];
+    const params: TaskFilterParams = {
+      page: this.page,
+      size: this.size,
+      sort: 'createdAt,desc',
+      projectId: this.selectedProjectId,
+      search: this.filterForm.get('search')?.value?.trim() || null,
+    };
+    this.taskService.getFilteredTasks(params).subscribe({
+      next: (p: PageResponse<Task>) => {
+        this.tasks = p.content ?? [];
+        this.totalElements = p.totalElements ?? 0;
+        this.totalPages = p.totalPages ?? 0;
         this.updateCharts();
         this.loading = false;
+        this.errorMessage = '';
         this.cdr.detectChanges();
       },
       error: () => {

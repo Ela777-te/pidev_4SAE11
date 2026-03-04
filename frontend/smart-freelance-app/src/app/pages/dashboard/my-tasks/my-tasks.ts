@@ -1,8 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { catchError, of } from 'rxjs';
-import { TaskService, Task, TaskRequest, TaskStatus, TaskPriority } from '../../../core/services/task.service';
+import { Subject, catchError, debounceTime, distinctUntilChanged, of, takeUntil } from 'rxjs';
+import { TaskService, Task, TaskRequest, TaskStatus, TaskPriority, TaskFilterParams, PageResponse } from '../../../core/services/task.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ProjectService, Project } from '../../../core/services/project.service';
 import { Card } from '../../../shared/components/card/card';
@@ -19,11 +19,17 @@ interface ProjectOption {
   templateUrl: './my-tasks.html',
   styleUrl: './my-tasks.scss',
 })
-export class MyTasks implements OnInit {
+export class MyTasks implements OnInit, OnDestroy {
   tasks: Task[] = [];
   loading = true;
   errorMessage = '';
+  page = 0;
+  size = 10;
+  totalElements = 0;
+  totalPages = 0;
   projectIdToTitle: Record<number, string> = {};
+  private searchSubject$ = new Subject<string>();
+  private destroy$ = new Subject<void>();
   projectsFromApi: ProjectOption[] = [];
   updatingStatus = false;
 
@@ -35,6 +41,7 @@ export class MyTasks implements OnInit {
   editForm: FormGroup;
   taskToDelete: Task | null = null;
   deleting = false;
+  filterForm: FormGroup;
 
   constructor(
     private taskService: TaskService,
@@ -58,6 +65,7 @@ export class MyTasks implements OnInit {
       priority: ['MEDIUM' as TaskPriority],
       dueDate: [null as string | null],
     });
+    this.filterForm = this.fb.group({ search: [''] });
   }
 
   get projectsForAdd(): ProjectOption[] {
@@ -69,6 +77,7 @@ export class MyTasks implements OnInit {
   }
 
   ngOnInit(): void {
+    this.setupSearchDebounce();
     this.loadTasks();
     this.projectService.getAllProjects().subscribe((projects) => {
       projects.forEach((p) => {
@@ -88,6 +97,26 @@ export class MyTasks implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private setupSearchDebounce(): void {
+    this.searchSubject$.pipe(
+      debounceTime(350),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.page = 0;
+      this.loadTasks();
+    });
+  }
+
+  onSearchInput(): void {
+    this.searchSubject$.next(this.filterForm.get('search')?.value?.trim() ?? '');
+  }
+
   loadTasks(): void {
     const userId = this.auth.getUserId();
     if (userId == null) {
@@ -96,10 +125,20 @@ export class MyTasks implements OnInit {
       return;
     }
     this.loading = true;
-    this.taskService.getTasksByAssigneeId(userId).subscribe({
-      next: (list) => {
-        this.tasks = list ?? [];
+    const params: TaskFilterParams = {
+      page: this.page,
+      size: this.size,
+      sort: 'createdAt,desc',
+      assigneeId: userId,
+      search: this.filterForm.get('search')?.value?.trim() || null,
+    };
+    this.taskService.getFilteredTasks(params).subscribe({
+      next: (p: PageResponse<Task>) => {
+        this.tasks = p.content ?? [];
+        this.totalElements = p.totalElements ?? 0;
+        this.totalPages = p.totalPages ?? 0;
         this.loading = false;
+        this.errorMessage = '';
         this.cdr.detectChanges();
       },
       error: () => {
@@ -108,6 +147,12 @@ export class MyTasks implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  goToPage(p: number): void {
+    if (p < 0 || p >= this.totalPages) return;
+    this.page = p;
+    this.loadTasks();
   }
 
   getProjectTitle(id: number): string {

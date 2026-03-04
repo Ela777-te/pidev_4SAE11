@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
@@ -65,33 +66,33 @@ class ProgressCommentServiceTest {
     @Test
     void findAllPaged_returnsPageFromRepository() {
         Page<ProgressComment> page = new PageImpl<>(List.of(comment(1L, 1L, 5L, "Hi")), PageRequest.of(0, 20), 1);
-        when(progressCommentRepository.findAll(any(PageRequest.class))).thenReturn(page);
+        when(progressCommentRepository.findAll(any(Pageable.class))).thenReturn(page);
 
-        Page<ProgressComment> result = progressCommentService.findAllPaged(0, 20);
+        Page<ProgressComment> result = progressCommentService.findAllPaged(0, 20, null);
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(progressCommentRepository).findAll(any(PageRequest.class));
+        verify(progressCommentRepository).findAll(any(Pageable.class));
     }
 
     @Test
     void findAllPaged_withNegativePage_usesZero() {
         when(progressCommentRepository.findAll(any(PageRequest.class))).thenReturn(new PageImpl<>(List.of()));
 
-        Page<ProgressComment> result = progressCommentService.findAllPaged(-1, 10);
+        Page<ProgressComment> result = progressCommentService.findAllPaged(-1, 10, null);
 
         assertThat(result).isNotNull();
-        verify(progressCommentRepository).findAll(any(PageRequest.class));
+        verify(progressCommentRepository).findAll(any(Pageable.class));
     }
 
     @Test
     void findAllPaged_withZeroSize_usesMinSizeOne() {
         when(progressCommentRepository.findAll(any(PageRequest.class))).thenReturn(new PageImpl<>(List.of()));
 
-        Page<ProgressComment> result = progressCommentService.findAllPaged(0, 0);
+        Page<ProgressComment> result = progressCommentService.findAllPaged(0, 0, null);
 
         assertThat(result).isNotNull();
-        verify(progressCommentRepository).findAll(any(PageRequest.class));
+        verify(progressCommentRepository).findAll(any(Pageable.class));
     }
 
     @Test

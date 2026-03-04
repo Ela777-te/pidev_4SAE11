@@ -2,6 +2,7 @@ package com.esprit.planning.service;
 
 import com.esprit.planning.client.ProjectClient;
 import com.esprit.planning.dto.*;
+import com.esprit.planning.dto.ProgressSummaryItemDto;
 import com.esprit.planning.dto.ProgressUpdateRequest;
 import com.esprit.planning.dto.ProgressUpdateValidationResponse;
 import com.esprit.planning.entity.ProgressUpdate;
@@ -22,10 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -526,6 +524,82 @@ public class ProgressUpdateService {
                 .distinctProjectCount(distinctProjectCount)
                 .distinctFreelancerCount(distinctFreelancerCount)
                 .build();
+    }
+
+    /** Returns lightweight summary for multiple projects. Each project gets currentProgress%, lastUpdateAt. */
+    @Transactional(readOnly = true)
+    public List<ProgressSummaryItemDto> getSummaryByProjectIds(List<Long> projectIds) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return List.of();
+        }
+        List<ProgressUpdate> updates = progressUpdateRepository.findByProjectIdIn(projectIds);
+        Map<Long, List<ProgressUpdate>> byProject = updates.stream().collect(Collectors.groupingBy(ProgressUpdate::getProjectId));
+        return projectIds.stream()
+                .map(pid -> {
+                    List<ProgressUpdate> projectUpdates = byProject.get(pid);
+                    if (projectUpdates == null || projectUpdates.isEmpty()) {
+                        return ProgressSummaryItemDto.builder().projectId(pid).currentProgressPercentage(null).lastUpdateAt(null).build();
+                    }
+                    ProgressUpdate latest = projectUpdates.stream()
+                            .max(Comparator.nullsLast(Comparator.comparing(ProgressUpdate::getUpdatedAt)))
+                            .orElseThrow();
+                    return ProgressSummaryItemDto.builder()
+                            .projectId(pid)
+                            .currentProgressPercentage(latest.getProgressPercentage())
+                            .lastUpdateAt(latest.getUpdatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /** Returns lightweight summary for multiple contracts. Each contract gets currentProgress%, lastUpdateAt. */
+    @Transactional(readOnly = true)
+    public List<ProgressSummaryItemDto> getSummaryByContractIds(List<Long> contractIds) {
+        if (contractIds == null || contractIds.isEmpty()) {
+            return List.of();
+        }
+        List<ProgressUpdate> updates = progressUpdateRepository.findByContractIdIn(contractIds);
+        Map<Long, List<ProgressUpdate>> byContract = updates.stream()
+                .filter(u -> u.getContractId() != null)
+                .collect(Collectors.groupingBy(ProgressUpdate::getContractId));
+        return contractIds.stream()
+                .map(cid -> {
+                    List<ProgressUpdate> contractUpdates = byContract.get(cid);
+                    if (contractUpdates == null || contractUpdates.isEmpty()) {
+                        return ProgressSummaryItemDto.builder().contractId(cid).currentProgressPercentage(null).lastUpdateAt(null).build();
+                    }
+                    ProgressUpdate latest = contractUpdates.stream()
+                            .max(Comparator.nullsLast(Comparator.comparing(ProgressUpdate::getUpdatedAt)))
+                            .orElseThrow();
+                    return ProgressSummaryItemDto.builder()
+                            .contractId(cid)
+                            .projectId(latest.getProjectId())
+                            .currentProgressPercentage(latest.getProgressPercentage())
+                            .lastUpdateAt(latest.getUpdatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /** Returns per-freelancer projects summary: projects they have updates on, with latest % and date. */
+    @Transactional(readOnly = true)
+    public List<ProgressSummaryItemDto> getFreelancerProjectsSummary(Long freelancerId) {
+        List<ProgressUpdate> updates = progressUpdateRepository.findByFreelancerId(freelancerId);
+        return updates.stream()
+                .collect(Collectors.groupingBy(ProgressUpdate::getProjectId))
+                .values().stream()
+                .map(projectUpdates -> {
+                    ProgressUpdate latest = projectUpdates.stream()
+                            .max(Comparator.nullsLast(Comparator.comparing(ProgressUpdate::getUpdatedAt)))
+                            .orElseThrow();
+                    return ProgressSummaryItemDto.builder()
+                            .projectId(latest.getProjectId())
+                            .contractId(latest.getContractId())
+                            .currentProgressPercentage(latest.getProgressPercentage())
+                            .lastUpdateAt(latest.getUpdatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

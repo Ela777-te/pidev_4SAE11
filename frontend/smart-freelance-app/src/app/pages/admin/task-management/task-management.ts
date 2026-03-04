@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import {
   TaskService,
   Task,
@@ -21,7 +22,7 @@ import { Card } from '../../../shared/components/card/card';
   templateUrl: './task-management.html',
   styleUrl: './task-management.scss',
 })
-export class TaskManagement implements OnInit {
+export class TaskManagement implements OnInit, OnDestroy {
   tasks: Task[] = [];
   loading = true;
   errorMessage = '';
@@ -47,6 +48,8 @@ export class TaskManagement implements OnInit {
   assigneeIdToName: Record<number, string> = {};
   projectsForAdd: Project[] = [];
   freelancersForAdd: User[] = [];
+  private searchSubject$ = new Subject<string>();
+  private destroy$ = new Subject<void>();
 
   constructor(
     private taskService: TaskService,
@@ -82,6 +85,7 @@ export class TaskManagement implements OnInit {
   }
 
   ngOnInit(): void {
+    this.setupSearchDebounce();
     this.loadHealth();
     this.loadStats();
     this.loadTasks();
@@ -97,6 +101,26 @@ export class TaskManagement implements OnInit {
       });
       this.projectsForAdd = projects.filter((p) => p.id != null);
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private setupSearchDebounce(): void {
+    this.searchSubject$.pipe(
+      debounceTime(350),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.page = 0;
+      this.loadTasks();
+    });
+  }
+
+  onSearchInput(): void {
+    this.searchSubject$.next(this.filterForm.get('search')?.value?.trim() ?? '');
   }
 
   loadHealth(): void {

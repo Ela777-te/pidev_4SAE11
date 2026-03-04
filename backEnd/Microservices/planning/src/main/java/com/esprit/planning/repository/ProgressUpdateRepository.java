@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,7 +23,11 @@ public interface ProgressUpdateRepository extends JpaRepository<ProgressUpdate, 
 
     List<ProgressUpdate> findByContractId(Long contractId);
 
+    List<ProgressUpdate> findByContractIdIn(Collection<Long> contractIds);
+
     List<ProgressUpdate> findByFreelancerId(Long freelancerId);
+
+    List<ProgressUpdate> findByProjectIdIn(Collection<Long> projectIds);
 
     /** For stalled projects: projectId and its latest update time. */
     @Query("SELECT p.projectId, MAX(p.updatedAt) FROM ProgressUpdate p GROUP BY p.projectId")

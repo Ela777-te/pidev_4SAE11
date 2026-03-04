@@ -17,14 +17,18 @@ class GlobalExceptionHandlerTest {
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
     @Test
-    void handleEntityNotFound_returns404WithMessage() {
+    void handleEntityNotFound_returns404WithErrorEnvelope() {
         EntityNotFoundException ex = new EntityNotFoundException("ProgressUpdate", 999L);
 
-        ResponseEntity<Map<String, String>> result = handler.handleEntityNotFound(ex);
+        ResponseEntity<Map<String, Object>> result = handler.handleEntityNotFound(ex);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(result.getBody()).containsKey("message");
-        assertThat(result.getBody().get("message")).contains("ProgressUpdate not found");
-        assertThat(result.getBody().get("message")).contains("999");
+        assertThat(result.getBody()).containsKey("error");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> error = (Map<String, Object>) result.getBody().get("error");
+        assertThat(error).containsKey("code");
+        assertThat(error.get("code")).isEqualTo("NOT_FOUND");
+        assertThat(error.get("message")).asString().contains("ProgressUpdate not found");
+        assertThat(error.get("message")).asString().contains("999");
     }
 }

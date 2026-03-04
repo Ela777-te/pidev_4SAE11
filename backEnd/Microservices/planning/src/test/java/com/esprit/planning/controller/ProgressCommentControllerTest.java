@@ -39,21 +39,23 @@ class ProgressCommentControllerTest {
     private ProgressCommentService progressCommentService;
 
     @Test
-    void getAll_withoutPagination_returnsFullList() throws Exception {
+    void getAll_withDefaults_returnsPagedResult() throws Exception {
         ProgressComment c = comment(1L, 1L, 5L, "Hello");
-        when(progressCommentService.findAll()).thenReturn(List.of(c));
+        Page<ProgressComment> page = new PageImpl<>(List.of(c), PageRequest.of(0, 20), 1);
+        when(progressCommentService.findAllPaged(0, 20, null)).thenReturn(page);
 
         mockMvc.perform(get("/api/progress-comments"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].message").value("Hello"));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].message").value("Hello"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test
     void getAll_withPageAndSize_returnsPagedResult() throws Exception {
         ProgressComment c = comment(1L, 1L, 5L, "Hello");
         Page<ProgressComment> page = new PageImpl<>(List.of(c), PageRequest.of(0, 20), 1);
-        when(progressCommentService.findAllPaged(0, 20)).thenReturn(page);
+        when(progressCommentService.findAllPaged(0, 20, null)).thenReturn(page);
 
         mockMvc.perform(get("/api/progress-comments").param("page", "0").param("size", "20"))
                 .andExpect(status().isOk())

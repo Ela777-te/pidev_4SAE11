@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,11 +36,24 @@ public class ProgressCommentService {
         return progressCommentRepository.findAll();
     }
 
-    /** Returns a paginated list of progress comments. */
+    /** Returns a paginated list of progress comments with optional sort (e.g. createdAt,desc). */
     @Transactional(readOnly = true)
-    public Page<ProgressComment> findAllPaged(int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+    public Page<ProgressComment> findAllPaged(int page, int size, String sort) {
+        Sort sortObj = parseSort(sort);
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size), sortObj);
         return progressCommentRepository.findAll(pageable);
+    }
+
+    private static Sort parseSort(String sort) {
+        if (sort == null || sort.isBlank()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+        String[] parts = sort.split(",");
+        if (parts.length == 1) {
+            return Sort.by(parts[0].trim());
+        }
+        Sort.Direction direction = "asc".equalsIgnoreCase(parts[1].trim()) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        return Sort.by(direction, parts[0].trim());
     }
 
     /** Returns a comment by id; throws if not found. */

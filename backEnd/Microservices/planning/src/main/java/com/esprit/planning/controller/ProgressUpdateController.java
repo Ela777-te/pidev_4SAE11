@@ -1,6 +1,7 @@
 package com.esprit.planning.controller;
 
 import com.esprit.planning.dto.FreelancerActivityDto;
+import com.esprit.planning.dto.ProgressSummaryItemDto;
 import com.esprit.planning.dto.ProgressTrendPointDto;
 import com.esprit.planning.dto.ProgressUpdateRequest;
 import com.esprit.planning.dto.ProgressUpdateValidationResponse;
@@ -9,7 +10,6 @@ import com.esprit.planning.dto.ProjectActivityDto;
 import com.esprit.planning.dto.StalledProjectDto;
 import com.esprit.planning.entity.ProgressComment;
 import com.esprit.planning.entity.ProgressUpdate;
-import com.esprit.planning.exception.ProgressCannotDecreaseException;
 import com.esprit.planning.service.ProgressCommentService;
 import com.esprit.planning.service.ProgressUpdateService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,7 +66,7 @@ public class ProgressUpdateController {
     @ApiResponse(responseCode = "200", description = "Success")
     public ResponseEntity<Page<ProgressUpdate>> getFiltered(
             @Parameter(description = "Page index (0-based)") @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Page size (max 100)") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Sort (e.g. createdAt,desc)") @RequestParam(required = false) String sort,
             @Parameter(description = "Filter by project ID") @RequestParam(required = false) Long projectId,
             @Parameter(description = "Filter by freelancer ID") @RequestParam(required = false) Long freelancerId,
@@ -77,7 +77,8 @@ public class ProgressUpdateController {
             @Parameter(description = "To date (yyyy-MM-dd)") @RequestParam(required = false) LocalDate dateTo,
             @Parameter(description = "Search in title and description (case-insensitive)") @RequestParam(required = false) String search) {
         Sort sortObj = parseSort(sort);
-        Pageable pageable = PageRequest.of(page, size, sortObj);
+        int cappedSize = Math.min(Math.max(1, size), 100);
+        Pageable pageable = PageRequest.of(Math.max(0, page), cappedSize, sortObj);
         Page<ProgressUpdate> result = progressUpdateService.findAllFiltered(
                 Optional.ofNullable(projectId),
                 Optional.ofNullable(freelancerId),
@@ -230,6 +231,49 @@ public class ProgressUpdateController {
     public ResponseEntity<List<ProgressUpdate>> getByFreelancerId(
             @Parameter(description = "Freelancer ID", example = "10", required = true) @PathVariable Long freelancerId) {
         return ResponseEntity.ok(progressUpdateService.findByFreelancerId(freelancerId));
+    }
+
+    /** Returns lightweight summary for multiple projects or contracts. Provide projectIds OR contractIds (comma-separated). */
+    @GetMapping("/summary")
+    @Operation(
+            summary = "Bulk summary by project or contract IDs",
+            description = "Returns lightweight summary (currentProgress%, lastUpdateAt) for multiple projects or contracts in one call. Use projectIds or contractIds query parameter (comma-separated)."
+    )
+    @ApiResponse(responseCode = "200", description = "Success")
+    public ResponseEntity<?> getSummary(
+            @Parameter(description = "Comma-separated project IDs (e.g. 1,2,3)") @RequestParam(value = "projectIds", required = false) String projectIdsParam,
+            @Parameter(description = "Comma-separated contract IDs (e.g. 1,2,3)") @RequestParam(value = "contractIds", required = false) String contractIdsParam
+    ) {
+        if (projectIdsParam != null && !projectIdsParam.isBlank()) {
+            List<Long> ids = parseIds(projectIdsParam);
+            return ResponseEntity.ok(progressUpdateService.getSummaryByProjectIds(ids));
+        }
+        if (contractIdsParam != null && !contractIdsParam.isBlank()) {
+            List<Long> ids = parseIds(contractIdsParam);
+            return ResponseEntity.ok(progressUpdateService.getSummaryByContractIds(ids));
+        }
+        return ResponseEntity.badRequest().body(Map.of("message", "Exactly one of projectIds or contractIds must be provided"));
+    }
+
+    /** Returns per-freelancer projects summary: projects they have updates on, with latest % and date. */
+    @GetMapping("/freelancer/{freelancerId}/projects-summary")
+    @Operation(
+            summary = "Freelancer projects summary",
+            description = "Returns list of projects the freelancer has progress updates on, with latest progress % and date per project."
+    )
+    @ApiResponse(responseCode = "200", description = "Success")
+    public ResponseEntity<List<ProgressSummaryItemDto>> getFreelancerProjectsSummary(
+            @Parameter(description = "Freelancer ID", example = "10", required = true) @PathVariable Long freelancerId) {
+        return ResponseEntity.ok(progressUpdateService.getFreelancerProjectsSummary(freelancerId));
+    }
+
+    private static List<Long> parseIds(String param) {
+        if (param == null || param.isBlank()) return List.of();
+        return java.util.Arrays.stream(param.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toList();
     }
 
     /** Returns the latest progress update for a project, freelancer, or contract. Exactly one of projectId, freelancerId, or contractId must be provided; 400 if zero or more than one, 404 if none found. */
@@ -423,13 +467,4 @@ public class ProgressUpdateController {
         return ResponseEntity.ok(response);
     }
 
-    /** Handles ProgressCannotDecreaseException: returns 400 with message, minAllowed, and provided. */
-    @ExceptionHandler(ProgressCannotDecreaseException.class)
-    public ResponseEntity<Map<String, Object>> handleProgressCannotDecrease(ProgressCannotDecreaseException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "message", ex.getMessage(),
-                "minAllowed", ex.getMinAllowed(),
-                "provided", ex.getProvided()
-        ));
-    }
 }

@@ -307,8 +307,9 @@ class ProgressUpdateControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.minAllowed").value(50))
-                .andExpect(jsonPath("$.provided").value(10));
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.minAllowed").value(50))
+                .andExpect(jsonPath("$.error.provided").value(10));
     }
 
     @Test

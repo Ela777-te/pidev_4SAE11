@@ -72,7 +72,7 @@
             <option value="DONE">DONE</option>
             <option value="CANCELLED">CANCELLED</option>
           </select>
-          <input type="text" class="search-input" formControlName="search" placeholder="Search by title…" (input)="onFilterChange()" />
+          <input type="text" class="search-input" formControlName="search" placeholder="Search by title…" (input)="onSearchInput()" />
           <button type="button" class="btn-secondary" (click)="clearFilters()" [disabled]="loading">Clear</button>
         </div>
       </div>

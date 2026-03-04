@@ -92,13 +92,21 @@
 
       <section class="tasks-section" aria-labelledby="list-heading">
         <app-card class="card-list">
-          <div class="toolbar">
+          <div class="toolbar toolbar--flex">
             <h2 id="list-heading" class="section-title">
               <span class="section-title__icon">✅</span>
               Tasks
             </h2>
+            <div class="toolbar-filters" [formGroup]="filterForm">
+              <input type="text" class="search-input" formControlName="search" placeholder="Search by title…" (input)="onSearchInput()" />
+            </div>
             <button type="button" class="btn-refresh" (click)="loadTasks()" [disabled]="loading" title="Refresh to see latest updates">Refresh</button>
           </div>
+          @if (totalPages > 0 || totalElements > 0) {
+            <div class="toolbar toolbar--count">
+              <span class="toolbar-count">{{ totalElements }} total · Page {{ page + 1 }} of {{ totalPages || 1 }}</span>
+            </div>
+          }
 
           @if (loading && tasks.length === 0) {
             <div class="state-box state-box--loading">
@@ -122,6 +130,15 @@
               </li>
             }
           </ul>
+          @if (totalPages > 1) {
+            <nav class="pagination" aria-label="Tasks pagination">
+              <button type="button" class="btn-pagination" (click)="goToPage(0)" [disabled]="page === 0 || loading" aria-label="First page">First</button>
+              <button type="button" class="btn-pagination" (click)="goToPage(page - 1)" [disabled]="page === 0 || loading" aria-label="Previous">Prev</button>
+              <span class="pagination-info">Page {{ page + 1 }} of {{ totalPages }}</span>
+              <button type="button" class="btn-pagination" (click)="goToPage(page + 1)" [disabled]="page >= totalPages - 1 || loading" aria-label="Next">Next</button>
+              <button type="button" class="btn-pagination" (click)="goToPage(totalPages - 1)" [disabled]="page >= totalPages - 1 || loading" aria-label="Last page">Last</button>
+            </nav>
+          }
           }
         </app-card>
       </section>
