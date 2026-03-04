@@ -8,7 +8,7 @@
 
 *PI Dev — 4SAE11 — Academic Year 2024/2025*
 
-A microservices-based platform connecting freelancers and clients for project collaboration, featuring AI-powered skill verification, portfolio management, and real-time notifications.
+A microservices-based platform connecting freelancers and clients for project collaboration, featuring AI-powered skill verification, portfolio management, real-time notifications, and GitHub integration.
 
 [Features](#features) • [Architecture](#architecture) • [Getting Started](#getting-started) • [Documentation](#documentation)
 
@@ -18,7 +18,7 @@ A microservices-based platform connecting freelancers and clients for project co
 
 ## Overview
 
-**Smart Freelance & Project Matching Platform** is a full-stack web application built with a microservices architecture. It enables clients to post projects, browse freelancer profiles, and hire talent; freelancers can showcase portfolios, apply to jobs, manage offers, and track progress with calendar and GitHub integration.
+**Smart Freelance & Project Matching Platform** is a full-stack web application built with a microservices architecture. Clients can post projects, browse freelancer profiles, and hire talent; freelancers can showcase portfolios, apply to jobs, manage offers, and track progress with calendar and GitHub integration. Role-specific dashboards (Client, Freelancer, Admin) provide tailored KPIs, quick actions, and feeds.
 
 ---
 
@@ -26,20 +26,20 @@ A microservices-based platform connecting freelancers and clients for project co
 
 | Role | Capabilities |
 |------|--------------|
-| **Freelancers** | Portfolio with experiences & skills, AI skill verification, browse jobs, submit applications, manage offers, reviews & ratings, contracts, notifications, calendar, GitHub sync |
-| **Clients** | Project CRUD, job posting, browse freelancers/offers, progress tracking |
-| **Admins** | User management, projects/contracts/offers oversight, planning, reviews, evaluations |
+| **Freelancers** | Portfolio with experiences & skills, AI skill verification, browse jobs, submit applications, manage offers, reviews & ratings (with response messaging), contracts, notifications, calendar, GitHub sync |
+| **Clients** | Project CRUD, job posting, browse freelancers/offers, progress tracking, track progress updates |
+| **Admins** | User management, projects/contracts/offers oversight, planning, reviews, skill management, GitHub, evaluations |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────────────────────────────────────────┐
-│   Angular   │────│ API Gateway │────│              Microservices (Eureka)               │
-│  Frontend   │     │   (8078)    │     │ User │ Project │ Offer │ Contract │ Portfolio │  │
-│  (4200)     │     └──────────────┘     │ Review │ Planning │ Notification │ Keycloak   │  │
-└─────────────┘            │             └─────────────────────────────────────────────────┘
+┌─────────────┐     ┌──────────────┐     ┌───────────────────────────────────────────────────┐
+│   Angular   │──── │ API Gateway  │──── │              Microservices (Eureka)              │
+│  Frontend   │     │   (8078)     │     │ User │ Project │ Offer │ Contract │ Portfolio   │ │
+│  (4200)     │     └──────────────┘     │ Review │ Planning │ Notification │ Task │ Keycloak │ │
+└─────────────┘            │             └───────────────────────────────────────────────────┘
                            │
                     ┌──────┴──────┐
                     │   Config    │
@@ -48,11 +48,13 @@ A microservices-based platform connecting freelancers and clients for project co
                     └─────────────┘
 ```
 
+**Inter-service calls:** Review → Notification (when a review response is received); Planning/Task/Offer → Notification.
+
 ### Tech Stack
 
 | Layer | Technologies |
 |-------|--------------|
-| **Frontend** | Angular 21, Bootstrap 5, Chart.js, TypeScript 5.9, SCSS |
+| **Frontend** | Angular 21, Bootstrap 5, Chart.js, TypeScript 5.9, SCSS, View Transitions (route animations) |
 | **Backend** | Java 17, Spring Boot 3.4/4.0, Spring Cloud (Eureka, Config, Gateway), OpenFeign, Resilience4j |
 | **Security** | Keycloak (OAuth2/JWT) |
 | **Database** | MySQL 8 (one DB per microservice) |
@@ -140,11 +142,11 @@ Swagger UI is available via the Gateway for services that expose it:
 │       ├── Contract/        # Contract management
 │       ├── Notification/    # Push notifications (Firebase)
 │       ├── Offer/           # Offers & applications
-│       ├── planning/        # Calendar, GitHub sync
+│       ├── planning/        # Calendar, GitHub sync, progress updates
 │       ├── task/            # Tasks, subtasks, calendar integration
 │       ├── Portfolio/       # Portfolio, skills, AI verification
 │       ├── Project/         # Project management
-│       ├── review/          # Reviews & ratings
+│       ├── review/          # Reviews & ratings (sends notifications on response)
 │       └── user/            # User profiles
 ├── frontend/
 │   └── smart-freelance-app/ # Angular SPA
@@ -159,15 +161,18 @@ Swagger UI is available via the Gateway for services that expose it:
 | Integration | Purpose | Configuration |
 |-------------|---------|---------------|
 | **Google Translate** | Offer translations | API key in Offer service |
-| **Firebase** | Push notifications | Credentials in Notification service |
-| **GitHub** | Planning sync | See [credentials/README.md](credentials/README.md) — set `$env:GITHUB_TOKEN` (token never committed) |
+| **Firebase** | Push notifications (Firestore) | Credentials in Notification service |
+| **GitHub** | Planning sync, commit history | See [credentials/README.md](credentials/README.md) — token in `githubToken.txt` or `$env:GITHUB_TOKEN` (never committed) |
 | **AI API** | Skill verification | API key in Portfolio service |
+
+All credential files are gitignored. See [credentials/README.md](credentials/README.md) for setup.
 
 ---
 
 ## Documentation
 
 - [Keycloak Setup](backEnd/KeyCloak/README.md) — Auth & realm configuration
+- [Credentials Setup](credentials/README.md) — GitHub token, Google Calendar, Firebase
 - [Portfolio Test Plan](Documentation/TEST_PLAN_PORTFOLIO.md)
 - [Implementation Specs](plans/)
 
