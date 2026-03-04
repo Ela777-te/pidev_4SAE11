@@ -11,6 +11,7 @@ const APPLICATIONS_API = `${environment.apiGatewayUrl}/project/applications`;
 export interface Project {
   id?: number;
   clientId?: number;
+  freelancerId?: number;
   title: string;
   description: string;
   budget?: number;
@@ -53,6 +54,9 @@ export class ProjectService {
       timeout(REQUEST_TIMEOUT_MS)
     );
   }
+  getByFreelancerId(id: number) {
+  return this.http.get<Project[]>(`${this.apiUrl}/freelancer/${id}`);
+}
 
   getApplicationsByFreelancer(freelancerId: number): Observable<ProjectApplication[]> {
     return this.http.get<ProjectApplication[]>(`${APPLICATIONS_API}/freelance/${freelancerId}`).pipe(
@@ -92,6 +96,21 @@ export class ProjectService {
     return this.http.delete(`${PROJECT_API}/${id}`, { observe: 'response' }).pipe(
       map((res) => res.status >= 200 && res.status < 300),
       catchError(() => of(false))
+    );
+  }
+
+  getRecommendedProjects(userId: number) {
+    return this.http.get<Project[]>(
+      `${PROJECT_API}/recommended`,
+      {
+        params: { userId }
+      }
+    );
+  }
+
+  getProjectStatistics() {
+    return this.http.get<any>(
+      `${PROJECT_API}/statistics`
     );
   }
 }

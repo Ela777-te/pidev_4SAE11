@@ -1,1 +1,42 @@
 CLAUDE.md
+
+# ─── Environment & secrets (never commit) ───
+.env
+.env.local
+.env.*.local
+*.env
+
+# Local config overrides (API keys, DB passwords, Keycloak secrets, etc.)
+**/application-local.properties
+backEnd/Microservices/Offer/src/main/resources/application-local.properties
+
+# Firebase service account keys (never commit)
+*-firebase-adminsdk-*.json
+**/serviceAccountKey*.json
+**/firebase-credentials*.json
+
+# GitHub token (never commit); set GITHUB_TOKEN env from this file locally
+githubToken.txt
+
+# MCP config (may contain SonarQube token and other secrets)
+.cursor/mcp.json
+
+# Google Cloud / Calendar API credentials (never commit)
+*google*credentials*.json
+googleproject-*.json
+client_secret_*.json
+
+# Keystores / TLS (if used later)
+*.jks
+*.p12
+*.pem
+*.key
+
+# ─── Build & IDE ───
+target/
+node_modules/
+dist/
+.angular/
+*.log
+.DS_Store
+Thumbs.db

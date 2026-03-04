@@ -1,24 +1,27 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, of, switchMap, map } from 'rxjs';
+import { Observable, tap, catchError, of, switchMap, map, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 const TOKEN_KEY         = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 const USER_ID_KEY       = 'user_id';
 
-/** 15 minutes of inactivity → auto-logout */
+/** 15 minutes of inactivity → auto-logout (when "stay signed in" is unchecked) */
 const INACTIVITY_MS = 15 * 60 * 1000;
 
 /** Map backend/Keycloak errors to a short message for the UI. */
 function toUserFriendlyAuthError(raw: string): string {
   const s = raw.toLowerCase();
   if (s.includes('connection refused') || s.includes('econnrefused')) {
-    return 'Authentication server is unavailable. Please ensure Keycloak is running on port 8421.';
+    return 'Authentication server is unavailable. Please ensure Keycloak is running.';
   }
   if (s.includes('user with email already exists')) {
     return 'An account with this email already exists. Try signing in or use another email.';
+  }
+  if (s.includes('keycloak rejected admin') || s.includes('keycloak admin')) {
+    return 'Signup is misconfigured on the server (Keycloak admin credentials). Contact the administrator or check the Keycloak auth service configuration.';
   }
   return raw.length > 120 ? raw.slice(0, 120) + '…' : raw;
 }
@@ -58,10 +61,16 @@ export class AuthService {
   private readonly baseUrl = `${environment.apiGatewayUrl}/${environment.authApiPrefix}`;
   private readonly userUrl = `${environment.apiGatewayUrl}/user/api/users`;
 
+  /** Storage backend: localStorage = stay signed in (persists), sessionStorage = session only (clears on tab close) */
+  private storage: Storage = this.resolveStorage();
+
   private tokenSignal = signal<string | null>(this.getStoredToken());
   public userIdSignal = signal<number | null>(this.getStoredUserId());
 
-  isLoggedIn   = computed(() => !!this.tokenSignal());
+  /** When true, inactivity timer runs (15 min logout). When false (stay signed in), no inactivity timeout. */
+  private useInactivityTimer = true;
+
+  isLoggedIn = computed(() => !!this.tokenSignal());
   isAdmin      = computed(() => this.getUserRole() === 'ADMIN');
   isClient     = computed(() => this.getUserRole() === 'CLIENT');
   isFreelancer = computed(() => this.getUserRole() === 'FREELANCER');
@@ -75,30 +84,44 @@ export class AuthService {
     private http: HttpClient,
     private router: Router
   ) {
-    // If we have a token but no user ID, try to fetch it
+    // Resolve storage: localStorage wins if it has token (stay signed in), else sessionStorage
+    this.storage = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+    this.useInactivityTimer = this.storage === sessionStorage;
+    this.tokenSignal.set(this.getStoredToken());
+    this.userIdSignal.set(this.getStoredUserId());
+
+    // Defer profile fetch to avoid circular dependency (auth interceptor injects AuthService)
     if (this.tokenSignal() && !this.userIdSignal()) {
-      this.fetchUserProfile().subscribe();
+      setTimeout(() => this.fetchUserProfile().subscribe(), 0);
     }
     // Resume timers if already logged in (e.g. page refresh)
     if (this.tokenSignal()) {
       this.scheduleTokenRefresh();
-      this.startInactivityTimer();
-      this.bindActivityListeners();
+      if (this.useInactivityTimer) {
+        this.startInactivityTimer();
+        this.bindActivityListeners();
+      }
     }
+  }
+
+  /** Determine which storage has (or will have) our tokens. */
+  private resolveStorage(): Storage {
+    return localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
   }
 
   // ── Storage helpers ────────────────────────────────────────
 
   private getStoredToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
   }
 
   private getStoredRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    const s = this.storage;
+    return s?.getItem(REFRESH_TOKEN_KEY) ?? null;
   }
 
   private getStoredUserId(): number | null {
-    const stored = localStorage.getItem(USER_ID_KEY);
+    const stored = this.storage?.getItem(USER_ID_KEY);
     return stored ? Number(stored) : null;
   }
 
@@ -119,7 +142,7 @@ export class AuthService {
     return this.http.get<UserProfile>(`${this.userUrl}/email/${userEmail}`).pipe(
       tap((user) => {
         if (user?.id) {
-          localStorage.setItem(USER_ID_KEY, String(user.id));
+          this.storage.setItem(USER_ID_KEY, String(user.id));
           this.userIdSignal.set(user.id);
           console.log('[AuthService] Stored numeric user ID:', user.id);
         }
@@ -133,18 +156,27 @@ export class AuthService {
 
   // ── Login ──────────────────────────────────────────────────
 
-  /** Success: LoginResponse with access_token. Failure: { error: string }. */
-  login(email: string, password: string): Observable<LoginResponse | { error: string }> {
+  /** Success: LoginResponse with access_token. Failure: { error: string }.
+   * @param rememberMe When true, use localStorage (persists across browser restarts). When false, use sessionStorage (clears when tab closes) + 15 min inactivity logout.
+   */
+  login(email: string, password: string, rememberMe = true): Observable<LoginResponse | { error: string }> {
     return this.http
       .post<LoginResponse>(`${this.baseUrl}/token`, { username: email, password } as LoginRequest)
       .pipe(
         tap((res) => {
           if (res?.access_token) {
-            localStorage.setItem(TOKEN_KEY, res.access_token);
+            this.storage = rememberMe ? localStorage : sessionStorage;
+            this.useInactivityTimer = !rememberMe;
+            // Clear the other storage to avoid stale tokens
+            const other = rememberMe ? sessionStorage : localStorage;
+            other.removeItem(TOKEN_KEY);
+            other.removeItem(REFRESH_TOKEN_KEY);
+            other.removeItem(USER_ID_KEY);
+            this.storage.setItem(TOKEN_KEY, res.access_token);
             this.tokenSignal.set(res.access_token);
           }
           if (res?.refresh_token) {
-            localStorage.setItem(REFRESH_TOKEN_KEY, res.refresh_token);
+            this.storage.setItem(REFRESH_TOKEN_KEY, res.refresh_token);
           }
         }),
         switchMap((res) => {
@@ -156,8 +188,10 @@ export class AuthService {
         tap((res) => {
           if ((res as LoginResponse)?.access_token) {
             this.scheduleTokenRefresh();
-            this.startInactivityTimer();
-            this.bindActivityListeners();
+            if (this.useInactivityTimer) {
+              this.startInactivityTimer();
+              this.bindActivityListeners();
+            }
           }
         }),
         catchError((err) => of({ error: this.mapLoginError(err) }))
@@ -176,11 +210,11 @@ export class AuthService {
       .pipe(
         tap((res) => {
           if (res?.access_token) {
-            localStorage.setItem(TOKEN_KEY, res.access_token);
+            this.storage.setItem(TOKEN_KEY, res.access_token);
             this.tokenSignal.set(res.access_token);
           }
           if (res?.refresh_token) {
-            localStorage.setItem(REFRESH_TOKEN_KEY, res.refresh_token);
+            this.storage.setItem(REFRESH_TOKEN_KEY, res.refresh_token);
           }
           this.scheduleTokenRefresh();
         }),
@@ -254,6 +288,9 @@ export class AuthService {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_ID_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionStorage.removeItem(USER_ID_KEY);
     this.tokenSignal.set(null);
     this.userIdSignal.set(null);
 
@@ -347,10 +384,28 @@ export class AuthService {
     if (status === 0 || status === undefined) {
       return 'Cannot reach the server. Check your connection and try again.';
     }
+    if (status === 503) {
+      const backendMsg = typeof body === 'object' && body?.error ? String(body.error) : '';
+      return backendMsg || 'Authentication service unavailable. Ensure Keycloak is running (e.g. on port 9090).';
+    }
     if (status && status >= 500) {
       return 'Authentication service is temporarily unavailable. Please try again later.';
     }
     return err?.message || 'Login failed. Please try again.';
+  }
+
+  /** Request password reset email. Always returns success message (no email enumeration). */
+  forgotPassword(email: string): Observable<{ message: string } | { error: string }> {
+    const url = `${this.baseUrl}/forgot-password`;
+    return this.http.post<{ message: string }>(url, { email }).pipe(
+      timeout(15000),
+      catchError((err) => {
+        const msg = err?.name === 'TimeoutError'
+          ? 'Request timed out. The email may have been sent — please check your inbox.'
+          : (err?.error?.error ?? err?.error?.message ?? err?.message ?? 'Failed to send reset email.');
+        return of({ error: msg });
+      })
+    );
   }
 
   /** Map backend/Keycloak errors to a short message. */

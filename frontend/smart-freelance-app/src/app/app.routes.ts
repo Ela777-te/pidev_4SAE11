@@ -17,8 +17,9 @@ export const routes: Routes = [
   // Auth pages (no layout)
   { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
   { path: 'signup', loadComponent: () => import('./pages/signup/signup.component').then(m => m.SignupComponent) },
+  { path: 'forgot-password', loadComponent: () => import('./pages/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent) },
 
-  // Dashboard routes (protected, CLIENT/FREELANCER only)
+  // Dashboard routes (protected; CLIENT and FREELANCER only — admin uses /admin/*)
   {
     path: 'dashboard',
     canActivate: [authGuard, roleGuard],
@@ -71,6 +72,10 @@ export const routes: Routes = [
         ]
       },
       { path: 'progress-updates', loadComponent: () => import('./pages/dashboard/progress-updates/progress-updates').then(m => m.ProgressUpdates) },
+      { path: 'calendar', loadComponent: () => import('./pages/dashboard/calendar/calendar').then(m => m.Calendar), title: 'Calendar' },
+      { path: 'my-tasks', loadComponent: () => import('./pages/dashboard/my-tasks/my-tasks').then(m => m.MyTasks) },
+      { path: 'project-tasks', loadComponent: () => import('./pages/dashboard/project-tasks/project-tasks').then(m => m.ProjectTasks) },
+      { path: 'github', loadComponent: () => import('./pages/dashboard/github/github').then(m => m.Github), title: 'GitHub' },
       { path: 'track-progress', loadComponent: () => import('./pages/dashboard/track-progress/track-progress').then(m => m.TrackProgress) },
       {
         path: 'my-offers',
@@ -165,7 +170,7 @@ export const routes: Routes = [
       },
       { path: 'my-portfolio', loadComponent: () => import('./pages/dashboard/portfolio-overview/portfolio-overview').then(m => m.PortfolioOverview) },
       { path: 'messages', loadComponent: () => import('./pages/dashboard/dashboard-home/dashboard-home').then(m => m.DashboardHome) },
-      { path: 'notifications', loadComponent: () => import('./pages/dashboard/dashboard-home/dashboard-home').then(m => m.DashboardHome) },
+      { path: 'notifications', loadComponent: () => import('./pages/dashboard/notifications/notifications').then(m => m.Notifications) },
       { path: 'profile', loadComponent: () => import('./pages/dashboard/profile/profile').then(m => m.Profile) },
       { path: 'settings', loadComponent: () => import('./pages/dashboard/dashboard-home/dashboard-home').then(m => m.DashboardHome) },
       { path: 'my-contracts', loadComponent: () => import('./pages/dashboard/my-contracts/my-contracts').then(m => m.MyContracts) },
@@ -212,6 +217,9 @@ export const routes: Routes = [
       },
 
       { path: 'planning', loadComponent: () => import('./pages/admin/planning-management/planning-management').then(m => m.PlanningManagement) },
+      { path: 'tasks', loadComponent: () => import('./pages/admin/task-management/task-management').then(m => m.TaskManagement) },
+      { path: 'calendar', loadComponent: () => import('./pages/dashboard/calendar/calendar').then(m => m.Calendar), title: 'Calendar' },
+      { path: 'github', loadComponent: () => import('./pages/dashboard/github/github').then(m => m.Github), title: 'GitHub' },
       { path: 'evaluations', loadComponent: () => import('./pages/admin/admin-dashboard/admin-dashboard').then(m => m.AdminDashboard) },
       { path: 'skill-stats', loadComponent: () => import('./pages/admin/skill-stats/skill-stats').then(m => m.SkillStats) },
       { path: 'skills', loadComponent: () => import('./pages/admin/skill-management/skill-management').then(m => m.AdminSkillManagement) },

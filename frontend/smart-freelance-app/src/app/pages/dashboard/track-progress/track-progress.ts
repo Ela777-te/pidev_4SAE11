@@ -1,5 +1,6 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { UserService, User } from '../../../core/services/user.service';
@@ -9,19 +10,51 @@ import {
   ProgressUpdate,
   ProgressComment,
   ProgressCommentRequest,
+  PageResponse,
+  StalledProjectDto,
 } from '../../../core/services/planning.service';
 import { Card } from '../../../shared/components/card/card';
+import { forkJoin, Subject, Subscription } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 
 const MESSAGE_MAX = 2000;
+const SEARCH_DEBOUNCE_MS = 350;
+const PAGE_SIZE = 10;
 
+/** Aggregated stats for client (across their projects). */
+export interface ClientProgressStats {
+  totalProjects: number;
+  totalUpdates: number;
+  totalComments: number;
+  averageProgressPercentage: number | null;
+}
+
+/** Parse GitHub URL to { owner, repo } or null. Supports https://github.com/owner/repo */
+function parseGithubRepoUrl(url: string | null | undefined): { owner: string; repo: string } | null {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const match = trimmed.match(/github\.com[/]([^/]+)[/]([^/]+)/i);
+  if (!match) return null;
+  const owner = match[1];
+  const repo = match[2].replace(/\.git$/, '');
+  return owner && repo ? { owner, repo } : null;
+}
+
+/**
+ * Client track-progress page: project stats, stalled projects, filtered progress updates by project,
+ * and CRUD for comments on progress updates. Loads project stats and updates on init.
+ */
 @Component({
   selector: 'app-track-progress',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, Card],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, Card],
   templateUrl: './track-progress.html',
   styleUrl: './track-progress.scss',
 })
-export class TrackProgress implements OnInit {
+export class TrackProgress implements OnInit, OnDestroy {
+  private searchTrigger$ = new Subject<void>();
+  private searchSub: Subscription | null = null;
+
   currentUser: User | null = null;
   projects: Project[] = [];
   selectedProject: Project | null = null;
@@ -39,7 +72,26 @@ export class TrackProgress implements OnInit {
   saving = false;
   deleting = false;
 
+  /** Search/filter for project list (when no project selected). */
+  projectFilterForm: FormGroup;
+  /** Search/filter for progress updates (when project selected). */
+  filterForm: FormGroup;
+
+  /** Client stats aggregated across their projects. */
+  stats: ClientProgressStats | null = null;
+  statsLoading = false;
+
+  /** Projects that are due or overdue for a progress update (no update in N days). */
+  dueOrOverdueProjects: StalledProjectDto[] = [];
+  dueLoading = false;
+
+  page = 0;
+  size = PAGE_SIZE;
+  totalElements = 0;
+  totalPages = 0;
+
   readonly messageMax = MESSAGE_MAX;
+  readonly parseGithubRepoUrl = parseGithubRepoUrl;
 
   constructor(
     private auth: AuthService,
@@ -47,13 +99,28 @@ export class TrackProgress implements OnInit {
     private projectService: ProjectService,
     private planning: PlanningService,
     private fb: FormBuilder,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute
   ) {
     this.addCommentForm = this.fb.group({
       message: ['', [Validators.required, Validators.maxLength(MESSAGE_MAX)]],
     });
     this.editCommentForm = this.fb.group({
       message: ['', [Validators.required, Validators.maxLength(MESSAGE_MAX)]],
+    });
+    this.projectFilterForm = this.fb.group({ search: [''] });
+    this.filterForm = this.fb.group({ search: [''] });
+  }
+
+  /** Projects filtered by project list search. */
+  get filteredProjects(): Project[] {
+    const q = this.projectFilterForm?.get('search')?.value?.trim()?.toLowerCase() ?? '';
+    if (!q) return this.projects;
+    return this.projects.filter((p) => {
+      const title = (p.title ?? '').toLowerCase();
+      const desc = (p.description ?? '').toLowerCase();
+      const idStr = (p.id ?? '').toString();
+      return title.includes(q) || desc.includes(q) || idStr.includes(q);
     });
   }
 
@@ -68,11 +135,19 @@ export class TrackProgress implements OnInit {
       this.currentUser = user ?? null;
       if (this.currentUser) {
         this.loadProjects();
+        this.searchSub = this.searchTrigger$.pipe(debounceTime(SEARCH_DEBOUNCE_MS)).subscribe(() => {
+          this.page = 0;
+          this.loadUpdatesForProject();
+        });
       } else {
         this.loading = false;
         this.cdr.detectChanges();
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   loadProjects(): void {
@@ -83,6 +158,16 @@ export class TrackProgress implements OnInit {
       next: (list: Project[]) => {
         this.projects = list ?? [];
         this.loading = false;
+        this.loadClientStats();
+        this.loadDueOrOverdue();
+        const projectIdParam = this.route.snapshot.queryParamMap.get('projectId');
+        if (projectIdParam) {
+          const id = Number(projectIdParam);
+          if (!Number.isNaN(id)) {
+            const project = this.projects.find((p) => p.id === id);
+            if (project) this.selectProject(project);
+          }
+        }
         this.cdr.detectChanges();
       },
       error: () => {
@@ -93,11 +178,92 @@ export class TrackProgress implements OnInit {
     });
   }
 
+  loadClientStats(): void {
+    if (this.projects.length === 0) {
+      this.stats = { totalProjects: 0, totalUpdates: 0, totalComments: 0, averageProgressPercentage: null };
+      this.statsLoading = false;
+      return;
+    }
+    this.statsLoading = true;
+    const requests = this.projects.map((p) => this.planning.getStatsByProject(p.id!));
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        let totalUpdates = 0;
+        let totalComments = 0;
+        let sumProgress = 0;
+        let countProgress = 0;
+        results.forEach((r) => {
+          if (r) {
+            totalUpdates += r.updateCount ?? 0;
+            totalComments += r.commentCount ?? 0;
+            if (r.currentProgressPercentage != null) {
+              sumProgress += r.currentProgressPercentage;
+              countProgress += 1;
+            }
+          }
+        });
+        this.stats = {
+          totalProjects: this.projects.length,
+          totalUpdates,
+          totalComments,
+          averageProgressPercentage: countProgress > 0 ? sumProgress / countProgress : null,
+        };
+        this.statsLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.statsLoading = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  loadDueOrOverdue(): void {
+    if (this.projects.length === 0) {
+      this.dueOrOverdueProjects = [];
+      return;
+    }
+    this.dueLoading = true;
+    this.planning.getDueOrOverdueProjects(7).subscribe({
+      next: (list) => {
+        const ids = new Set(this.projects.map((p) => p.id).filter((id): id is number => id != null));
+        this.dueOrOverdueProjects = (list ?? []).filter((s) => ids.has(s.projectId));
+        this.dueLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.dueLoading = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  onSearchChange(): void {
+    this.searchTrigger$.next();
+  }
+
+  clearSearch(): void {
+    this.filterForm.patchValue({ search: '' });
+    this.page = 0;
+    this.loadUpdatesForProject();
+  }
+
+  clearProjectSearch(): void {
+    this.projectFilterForm.patchValue({ search: '' });
+    this.cdr.detectChanges();
+  }
+
+  goToPage(p: number): void {
+    if (p < 0 || p >= this.totalPages) return;
+    this.page = p;
+    this.loadUpdatesForProject();
+  }
+
   selectProject(project: Project): void {
     this.selectedProject = project;
     this.errorMessage = '';
-    this.updates = [];
-    this.commentsByUpdateId = {};
+    this.filterForm.patchValue({ search: '' });
+    this.page = 0;
     this.loadUpdatesForProject();
   }
 
@@ -105,18 +271,31 @@ export class TrackProgress implements OnInit {
     this.selectedProject = null;
     this.updates = [];
     this.commentsByUpdateId = {};
+    this.totalElements = 0;
+    this.totalPages = 0;
   }
 
   loadUpdatesForProject(): void {
     const projectId = this.selectedProject?.id;
     if (!this.selectedProject || projectId == null) return;
     this.loadingUpdates = true;
-    this.planning.getProgressUpdatesByProjectId(projectId).subscribe({
-      next: (list) => {
-        this.updates = list ?? [];
-        this.loadingUpdates = false;
+    const search = this.filterForm.get('search')?.value?.trim() || null;
+    this.planning.getFilteredProgressUpdates({
+      projectId,
+      search: search || null,
+      page: this.page,
+      size: this.size,
+      sort: 'createdAt,desc',
+    }).subscribe({
+      next: (res: PageResponse<ProgressUpdate>) => {
+        this.updates = res.content ?? [];
+        this.totalElements = res.totalElements ?? 0;
+        this.totalPages = res.totalPages ?? 0;
+        this.size = res.size ?? this.size;
+        this.page = res.number ?? 0;
         this.commentsByUpdateId = {};
         this.updates.forEach((u) => this.loadComments(u.id));
+        this.loadingUpdates = false;
         this.cdr.detectChanges();
       },
       error: () => {

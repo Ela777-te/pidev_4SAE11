@@ -84,7 +84,7 @@ spring:
             - StripPrefix=1
 
         - id: offer
-          uri: lb://Offer
+          uri: lb://OFFER
           predicates:
             - Path=/offer/**
           filters:
@@ -94,5 +94,21 @@ spring:
           uri: http://localhost:8083
           predicates:
             - Path=/contract/**
+          filters:
+            - StripPrefix=1
+
+        # Notification (Firestore): direct URL (port 8087)
+        - id: notification
+          uri: http://localhost:8087
+          predicates:
+            - Path=/notification/**
+          filters:
+            - StripPrefix=1
+
+        # Task: direct URL (port 8091)
+        - id: task
+          uri: http://localhost:8091
+          predicates:
+            - Path=/task/**
           filters:
             - StripPrefix=1

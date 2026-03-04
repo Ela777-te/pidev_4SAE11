@@ -1,11 +1,13 @@
 package tn.esprit.project.Controllers;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import tn.esprit.project.Entities.Project;
 import tn.esprit.project.Services.IProjectService;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/projects")
@@ -14,6 +16,13 @@ public class ProjectController {
 
     private final IProjectService projectService;
 
+    @Value("${welcome.message}")
+    private String welcomeMessage;
+
+    @GetMapping("/welcome")
+    public String welcome() {
+        return welcomeMessage;
+    }
 
     @PostMapping("/add")
     public Project addProject(@RequestBody Project project) {
@@ -42,5 +51,17 @@ public class ProjectController {
     @GetMapping("/{id:\\d+}")
     public Project getProjectById(@PathVariable Long id) {
         return projectService.getProjectById(id);
+    }
+
+    @GetMapping("/recommended")
+    public List<Project> getRecommendedProjects(
+            @RequestParam Long userId) {
+
+        return projectService.getRecommendedProjects(userId);
+    }
+
+    @GetMapping("/statistics")
+    public Map<String, Object> getStatistics() {
+        return projectService.getProjectStatistics();
     }
 }
